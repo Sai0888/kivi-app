@@ -4,7 +4,6 @@ import numpy as np
 import streamlit as st
 import time
 import pandas as pd
-import pickle
 from sklearn.metrics.pairwise import cosine_similarity
 
 # Import with error handling
@@ -692,3 +691,4 @@ if uploaded_files and st.session_state.embeddings is not None and len(st.session
             if st.button(suggestion, use_container_width=True):
                 st.session_state.suggested_question = suggestion
                 st.rerun()
+
