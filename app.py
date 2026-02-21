@@ -25,7 +25,7 @@ import docx
 # =============================
 # PAGE CONFIG
 # =============================
-st.set_page_config(page_title="Kivi", page_icon="📄", layout="wide")
+st.set_page_config(page_title="Kivi - AI Document Assistant", page_icon="📄", layout="wide")
 
 
 # =============================
@@ -78,7 +78,7 @@ if "suggested_question" not in st.session_state:
 
 
 # =============================
-# DARK MODE TOGGLE & CSS
+# DARK MODE TOGGLE & CSS (FULLY FIXED)
 # =============================
 def get_css(dark_mode):
     if dark_mode:
@@ -86,71 +86,120 @@ def get_css(dark_mode):
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
+        /* Base styles */
         html, body, [class*="css"] {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: #0A0A0A;
-            color: #FFFFFF;
+            background: #0A0A0A !important;
+            color: #FFFFFF !important;
         }
 
         .stApp {
-            background: #0A0A0A;
+            background: #0A0A0A !important;
         }
 
+        /* Fix for all containers */
+        .main > div {
+            background-color: #0A0A0A !important;
+        }
+
+        .block-container {
+            background-color: #0A0A0A !important;
+            padding-top: 1rem !important;
+        }
+
+        .stApp > header {
+            background-color: #141414 !important;
+            border-bottom: 1px solid #242424 !important;
+        }
+
+        /* Sidebar */
         section[data-testid="stSidebar"] > div {
-            background: #141414;
-            border-right: 1px solid #242424;
+            background: #141414 !important;
+            border-right: 1px solid #242424 !important;
         }
 
-        hr{
-            border: none;
-            height: 1px;
-            background: #242424;
+        section[data-testid="stSidebar"] * {
+            color: #FFFFFF !important;
         }
 
-        .kivi-card{
-            background: #141414;
-            border: 1px solid #242424;
-            border-radius: 16px;
-            padding: 16px;
-            margin-bottom: 14px;
-        }
-        .kivi-card-title{
-            font-weight:600;
-            font-size:14px;
-            color: #FFFFFF;
-            margin-bottom:6px;
-        }
-        .kivi-card-sub{
-            font-size:13px;
-            color: #888888;
-            margin-bottom:10px;
+        /* Dividers */
+        hr {
+            border: none !important;
+            height: 1px !important;
+            background: #242424 !important;
+            margin: 1rem 0 !important;
         }
 
-        .upload-area {
-            background: #141414;
-            border: 1px dashed #333333;
-            border-radius: 16px;
-            padding: 32px;
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        .upload-icon {
-            font-size: 32px;
-            margin-bottom: 12px;
-            opacity: 0.7;
-        }
-        .upload-title {
-            font-size: 15px;
-            font-weight: 500;
-            color: #FFFFFF;
-            margin-bottom: 4px;
-        }
-        .upload-subtitle {
-            color: #888888;
-            font-size: 13px;
+        /* Expanders */
+        .streamlit-expanderHeader {
+            background-color: #141414 !important;
+            color: #FFFFFF !important;
+            border: 1px solid #242424 !important;
+            border-radius: 8px !important;
         }
 
-        div.stButton > button{
+        .streamlit-expanderContent {
+            background-color: #141414 !important;
+            border: 1px solid #242424 !important;
+            border-top: none !important;
+            border-radius: 0 0 8px 8px !important;
+        }
+
+        [data-testid="stExpander"] {
+            background: transparent !important;
+        }
+
+        /* Input fields */
+        .stTextInput > div > div > input {
+            background-color: #141414 !important;
+            color: #FFFFFF !important;
+            border-color: #242424 !important;
+        }
+
+        .stTextArea > div > div > textarea {
+            background-color: #141414 !important;
+            color: #FFFFFF !important;
+            border-color: #242424 !important;
+        }
+
+        .stSelectbox > div > div {
+            background-color: #141414 !important;
+            color: #FFFFFF !important;
+            border-color: #242424 !important;
+        }
+
+        .stMultiSelect > div > div {
+            background-color: #141414 !important;
+            color: #FFFFFF !important;
+            border-color: #242424 !important;
+        }
+
+        /* Sliders */
+        .stSlider > div {
+            color: #FFFFFF !important;
+        }
+
+        .stSlider [data-baseweb="slider"] {
+            background-color: #242424 !important;
+        }
+
+        /* Metrics */
+        div[data-testid="stMetricValue"] {
+            color: #FFFFFF !important;
+            background: transparent !important;
+        }
+
+        div[data-testid="stMetricLabel"] {
+            color: #888888 !important;
+            background: transparent !important;
+        }
+
+        div[data-testid="stMetricDelta"] {
+            color: #888888 !important;
+        }
+
+        /* Buttons */
+        div.stButton > button {
             border-radius: 10px !important;
             padding: 6px 12px !important;
             font-weight: 500 !important;
@@ -159,48 +208,262 @@ def get_css(dark_mode):
             color: #FFFFFF !important;
             border: none !important;
         }
-        div.stButton > button:hover{
+        div.stButton > button:hover {
             background: #333333 !important;
+            border: none !important;
         }
 
-        .stChatMessage>div{
+        /* Chat messages */
+        .stChatMessage > div {
             border-radius: 12px !important;
-            padding: 12px 16px;
-            margin-bottom: 8px;
-            font-size: 14px;
-            line-height: 1.5;
+            padding: 12px 16px !important;
+            margin-bottom: 8px !important;
+            font-size: 14px !important;
+            line-height: 1.5 !important;
         }
+
         .stChatMessage [data-testid="chatMessageContent"] {
             color: #FFFFFF !important;
         }
-        .stChatMessage.user>div{ 
-            background: linear-gradient(135deg, #6366F1, #8B5CF6); 
-        }
-        .stChatMessage.assistant>div{ 
-            background: #141414; 
-            border: 1px solid #242424;
+
+        .stChatMessage.user > div { 
+            background: linear-gradient(135deg, #6366F1, #8B5CF6) !important; 
         }
 
-        [data-testid="stExpander"]{
-            border-radius: 12px !important;
+        .stChatMessage.assistant > div { 
+            background: #141414 !important; 
             border: 1px solid #242424 !important;
-            background: #141414 !important;
         }
 
-        .stMarkdown, p, li, h1, h2, h3, h4, h5, h6 {
-            color: #FFFFFF !important;
-        }
-
+        /* Chat input */
         .stChatInputContainer {
             background: #141414 !important;
             border: 1px solid #242424 !important;
             border-radius: 12px !important;
         }
-        
-        .stSuccess, .stWarning {
+
+        .stChatInputContainer input {
+            color: #FFFFFF !important;
+        }
+
+        /* Info/Warning/Success boxes */
+        .stAlert {
             background: #141414 !important;
             border: 1px solid #242424 !important;
             color: #FFFFFF !important;
+        }
+
+        .stInfo {
+            background: #141414 !important;
+            border-left-color: #6366F1 !important;
+        }
+
+        .stWarning {
+            background: #141414 !important;
+            border-left-color: #F59E0B !important;
+        }
+
+        .stError {
+            background: #141414 !important;
+            border-left-color: #EF4444 !important;
+        }
+
+        .stSuccess {
+            background: #141414 !important;
+            border-left-color: #10B981 !important;
+        }
+
+        /* Data frames */
+        .dataframe {
+            background: #141414 !important;
+            color: #FFFFFF !important;
+        }
+
+        .dataframe th {
+            background: #242424 !important;
+            color: #FFFFFF !important;
+        }
+
+        .dataframe td {
+            background: #141414 !important;
+            color: #FFFFFF !important;
+            border-color: #242424 !important;
+        }
+
+        /* Tabs */
+        .stTabs [data-baseweb="tab-list"] {
+            background: #141414 !important;
+            border-color: #242424 !important;
+        }
+
+        .stTabs [data-baseweb="tab"] {
+            color: #888888 !important;
+        }
+
+        .stTabs [aria-selected="true"] {
+            color: #FFFFFF !important;
+            border-bottom-color: #6366F1 !important;
+        }
+
+        /* Radio buttons and checkboxes */
+        .stRadio > div {
+            color: #FFFFFF !important;
+        }
+
+        .stCheckbox > div {
+            color: #FFFFFF !important;
+        }
+
+        /* Code blocks */
+        .stCodeBlock {
+            background: #141414 !important;
+            border: 1px solid #242424 !important;
+        }
+
+        /* File uploader */
+        .uploadedFile {
+            background: #141414 !important;
+            border-color: #242424 !important;
+            color: #FFFFFF !important;
+        }
+
+        /* Custom classes */
+        .kivi-card {
+            background: #141414 !important;
+            border: 1px solid #242424 !important;
+            border-radius: 16px !important;
+            padding: 16px !important;
+            margin-bottom: 14px !important;
+        }
+
+        .kivi-card-title {
+            font-weight: 600 !important;
+            font-size: 14px !important;
+            color: #FFFFFF !important;
+            margin-bottom: 6px !important;
+        }
+
+        .kivi-card-sub {
+            font-size: 13px !important;
+            color: #888888 !important;
+            margin-bottom: 10px !important;
+        }
+
+        .upload-area {
+            background: #141414 !important;
+            border: 2px dashed #333333 !important;
+            border-radius: 16px !important;
+            padding: 32px !important;
+            text-align: center !important;
+            margin-bottom: 20px !important;
+        }
+
+        .upload-icon {
+            font-size: 32px !important;
+            margin-bottom: 12px !important;
+            opacity: 0.7 !important;
+        }
+
+        .upload-title {
+            font-size: 15px !important;
+            font-weight: 500 !important;
+            color: #FFFFFF !important;
+            margin-bottom: 4px !important;
+        }
+
+        .upload-subtitle {
+            color: #888888 !important;
+            font-size: 13px !important;
+        }
+
+        /* Fix for any white backgrounds */
+        [data-testid="stDecoration"] {
+            background-image: none !important;
+        }
+
+        div[role="radiogroup"] {
+            background: transparent !important;
+        }
+
+        /* Make sure all text is visible */
+        p, li, h1, h2, h3, h4, h5, h6, span, div {
+            color: inherit !important;
+        }
+
+        /* Logo animations */
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+            100% { transform: translateY(0px); }
+        }
+
+        @keyframes glow {
+            0% { filter: drop-shadow(0 0 5px rgba(99,102,241,0.3)); }
+            50% { filter: drop-shadow(0 0 15px rgba(139,92,246,0.5)); }
+            100% { filter: drop-shadow(0 0 5px rgba(99,102,241,0.3)); }
+        }
+
+        .kivi-logo-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin: 20px 0 10px 0;
+            animation: float 4s ease-in-out infinite;
+        }
+
+        .kivi-logo-icon {
+            width: 50px;
+            height: 50px;
+            position: relative;
+            animation: glow 3s ease-in-out infinite;
+        }
+
+        .kivi-logo-shape1 {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #6366F1, #8B5CF6);
+            border-radius: 18px;
+            transform: rotate(10deg);
+            opacity: 0.8;
+        }
+
+        .kivi-logo-shape2 {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #8B5CF6, #EC4899);
+            border-radius: 14px;
+            top: 5px;
+            left: 5px;
+            transform: rotate(-5deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            font-size: 20px;
+            backdrop-filter: blur(2px);
+        }
+
+        .kivi-logo-text {
+            font-size: 40px;
+            font-weight: 700;
+            letter-spacing: -1px;
+            background: linear-gradient(135deg, #FFFFFF, #AAAAAA);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            position: relative;
+        }
+
+        .kivi-logo-dot {
+            width: 6px;
+            height: 6px;
+            background: linear-gradient(135deg, #6366F1, #EC4899);
+            border-radius: 50%;
+            display: inline-block;
+            margin-left: 2px;
+            animation: glow 2s ease-in-out infinite;
         }
         </style>
         """
@@ -247,7 +510,7 @@ def get_css(dark_mode):
 
         .upload-area {
             background: #F8F8F8;
-            border: 1px dashed #DDDDDD;
+            border: 2px dashed #DDDDDD;
             border-radius: 16px;
             padding: 32px;
             text-align: center;
@@ -308,6 +571,82 @@ def get_css(dark_mode):
             border: 1px solid #EEEEEE !important;
             border-radius: 12px !important;
         }
+
+        /* Logo animations - Light mode */
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+            100% { transform: translateY(0px); }
+        }
+
+        @keyframes glow {
+            0% { filter: drop-shadow(0 0 5px rgba(99,102,241,0.2)); }
+            50% { filter: drop-shadow(0 0 15px rgba(139,92,246,0.3)); }
+            100% { filter: drop-shadow(0 0 5px rgba(99,102,241,0.2)); }
+        }
+
+        .kivi-logo-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin: 20px 0 10px 0;
+            animation: float 4s ease-in-out infinite;
+        }
+
+        .kivi-logo-icon {
+            width: 50px;
+            height: 50px;
+            position: relative;
+            animation: glow 3s ease-in-out infinite;
+        }
+
+        .kivi-logo-shape1 {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #6366F1, #8B5CF6);
+            border-radius: 18px;
+            transform: rotate(10deg);
+            opacity: 0.8;
+        }
+
+        .kivi-logo-shape2 {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #8B5CF6, #EC4899);
+            border-radius: 14px;
+            top: 5px;
+            left: 5px;
+            transform: rotate(-5deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            font-size: 20px;
+            backdrop-filter: blur(2px);
+        }
+
+        .kivi-logo-text {
+            font-size: 40px;
+            font-weight: 700;
+            letter-spacing: -1px;
+            background: linear-gradient(135deg, #111111, #333333);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            position: relative;
+        }
+
+        .kivi-logo-dot {
+            width: 6px;
+            height: 6px;
+            background: linear-gradient(135deg, #6366F1, #EC4899);
+            border-radius: 50%;
+            display: inline-block;
+            margin-left: 2px;
+            animation: glow 2s ease-in-out infinite;
+        }
         </style>
         """
 
@@ -326,13 +665,13 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
     st.session_state.dark_mode = st.toggle("🌙 Dark Mode", value=st.session_state.dark_mode)
-    TOP_K = st.slider("Number of chunks to retrieve", 3, 10, 5)  # Increased default
+    TOP_K = st.slider("Number of chunks to retrieve", 3, 10, 5)
     st.caption("More chunks = better context")
     st.divider()
     
     st.markdown("### 📊 Analytics")
-    st.write("Chunks:", len(st.session_state.chunks))
-    st.write("Messages:", len(st.session_state.messages))
+    st.write("📄 Chunks:", len(st.session_state.chunks))
+    st.write("💬 Messages:", len(st.session_state.messages))
     st.divider()
     
     st.markdown("### 💾 Saved Chats")
@@ -352,93 +691,9 @@ with st.sidebar:
 
 
 # =============================
-# COOL UNIQUE LOGO
+# LOGO
 # =============================
 st.markdown("""
-<style>
-@keyframes float {
-    0% { transform: translateY(0px); }
-    50% { transform: translateY(-5px); }
-    100% { transform: translateY(0px); }
-}
-
-@keyframes glow {
-    0% { filter: drop-shadow(0 0 5px rgba(99,102,241,0.3)); }
-    50% { filter: drop-shadow(0 0 15px rgba(139,92,246,0.5)); }
-    100% { filter: drop-shadow(0 0 5px rgba(99,102,241,0.3)); }
-}
-
-.kivi-logo-container {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    margin: 30px 0 20px 0;
-    animation: float 4s ease-in-out infinite;
-}
-
-.kivi-logo-icon {
-    width: 50px;
-    height: 50px;
-    position: relative;
-    animation: glow 3s ease-in-out infinite;
-}
-
-.kivi-logo-shape1 {
-    position: absolute;
-    width: 50px;
-    height: 50px;
-    background: linear-gradient(135deg, #6366F1, #8B5CF6);
-    border-radius: 18px;
-    transform: rotate(10deg);
-    opacity: 0.8;
-}
-
-.kivi-logo-shape2 {
-    position: absolute;
-    width: 40px;
-    height: 40px;
-    background: linear-gradient(135deg, #8B5CF6, #EC4899);
-    border-radius: 14px;
-    top: 5px;
-    left: 5px;
-    transform: rotate(-5deg);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-weight: 700;
-    font-size: 20px;
-    backdrop-filter: blur(2px);
-}
-
-.kivi-logo-text {
-    font-size: 40px;
-    font-weight: 700;
-    letter-spacing: -1px;
-    background: linear-gradient(135deg, #111111, #333333);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    position: relative;
-}
-
-.kivi-logo-dot {
-    width: 6px;
-    height: 6px;
-    background: linear-gradient(135deg, #6366F1, #EC4899);
-    border-radius: 50%;
-    display: inline-block;
-    margin-left: 2px;
-    animation: glow 2s ease-in-out infinite;
-}
-
-/* Dark mode adjustments */
-[data-theme="dark"] .kivi-logo-text {
-    background: linear-gradient(135deg, #FFFFFF, #AAAAAA);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-</style>
-
 <div class="kivi-logo-container">
     <div class="kivi-logo-icon">
         <div class="kivi-logo-shape1"></div>
@@ -530,7 +785,7 @@ def chunk_text(text: str, chunk_size=500, overlap=100):
         chunk_words = words[i:i + chunk_size]
         if chunk_words:
             chunk = " ".join(chunk_words)
-            if len(chunk) > 50:  # Only keep meaningful chunks
+            if len(chunk) > 50:
                 chunks.append(chunk)
     
     return chunks
@@ -559,13 +814,13 @@ def build_embeddings_from_files(files):
             all_chunks.append(c)
             all_meta.append({"file": f.name})
         
-        st.info(f"Created {len(chunks)} chunks from {f.name}")
+        st.info(f"📄 {f.name}: {len(chunks)} chunks")
     
     if not all_chunks:
         return None, [], []
     
     # Create embeddings
-    with st.spinner("Creating embeddings..."):
+    with st.spinner("🔮 Creating embeddings..."):
         embeddings = embedder.encode(all_chunks, convert_to_numpy=True, show_progress_bar=False)
     
     return embeddings, all_chunks, all_meta
@@ -588,19 +843,47 @@ def find_similar_chunks(query_embedding, embeddings, chunks, meta, k=5):
     
     return results
 
-def groq_answer(system_prompt: str, user_prompt: str) -> str:
+def groq_answer(system_prompt: str, user_prompt: str, question: str) -> str:
+    """Enhanced answer generation with better prompting"""
     try:
+        # Enhanced system prompt for better answers
+        enhanced_system = (
+            "You are Kivi, an expert document analysis assistant. "
+            "Your role is to provide accurate, helpful answers based ONLY on the given context.\n\n"
+            "GUIDELINES:\n"
+            "1. Be thorough and detailed when information is available\n"
+            "2. If information is partially available, explain what you found and what's missing\n"
+            "3. If nothing relevant is found, say: 'I cannot find this information in the provided documents'\n"
+            "4. Do not make up or assume information\n"
+            "5. Quote relevant parts when helpful\n"
+            "6. If the context contains lists or tables, present them clearly\n"
+            "7. Be concise but comprehensive\n"
+            "8. Use a professional, helpful tone\n\n"
+            "Remember: Quality over quantity. Be helpful but accurate."
+        )
+        
+        # Enhanced user prompt
+        enhanced_user = f"""CONTEXT:
+{user_prompt}
+
+QUESTION: {question}
+
+Please provide a comprehensive answer based ONLY on the context above.
+If the context lacks information, clearly state what's missing.
+If you find relevant information, explain it in detail."""
+
         resp = client.chat.completions.create(
             model=MODEL_NAME,
             messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
+                {"role": "system", "content": enhanced_system},
+                {"role": "user", "content": enhanced_user},
             ],
-            temperature=0.3,  # Lower temperature for more focused answers
+            temperature=0.4,
+            max_tokens=800,
         )
         return resp.choices[0].message.content
     except Exception as e:
-        return f"Error: {str(e)}"
+        return f"Error generating answer: {str(e)}"
 
 def stream_response(text, placeholder):
     displayed = ""
@@ -620,7 +903,7 @@ def stream_response(text, placeholder):
 if uploaded_files:
     new_hash = compute_files_hash(uploaded_files)
     if st.session_state.files_hash != new_hash:
-        with st.spinner("Processing documents..."):
+        with st.spinner("🔄 Processing documents..."):
             embeddings, chunks, meta = build_embeddings_from_files(uploaded_files)
             st.session_state.embeddings = embeddings
             st.session_state.chunks = chunks
@@ -628,7 +911,7 @@ if uploaded_files:
             st.session_state.files_hash = new_hash
         
         if embeddings is None:
-            st.error("No readable text found in uploaded files. Please check your documents.")
+            st.error("❌ No readable text found. Please check your documents.")
         else:
             st.success(f"✅ Loaded {len(uploaded_files)} file(s) • {len(chunks)} chunks ready!")
 
@@ -656,42 +939,54 @@ if question:
         st.markdown(question)
 
     if not uploaded_files or st.session_state.embeddings is None:
-        st.warning("Please upload documents first.")
+        st.warning("📤 Please upload documents first.")
         st.stop()
 
     # Get query embedding
-    with st.spinner("Searching documents..."):
+    with st.spinner("🔍 Searching documents..."):
         q_emb = embedder.encode([question], convert_to_numpy=True)[0]
         
         # Find similar chunks
         retrieved = find_similar_chunks(q_emb, st.session_state.embeddings, 
                                         st.session_state.chunks, st.session_state.meta, k=TOP_K)
 
+    # Calculate confidence
+    if retrieved:
+        avg_confidence = sum([score for _, _, score in retrieved]) / len(retrieved)
+        if avg_confidence > 0.5:
+            confidence_emoji = "🟢 High"
+        elif avg_confidence > 0.3:
+            confidence_emoji = "🟡 Medium"
+        else:
+            confidence_emoji = "🟠 Low"
+    else:
+        avg_confidence = 0
+        confidence_emoji = "⚫ None"
+
     if not retrieved:
         context = "No relevant information found in the documents."
-        st.info("No relevant chunks found. Try a different question or upload more documents.")
     else:
-        # Show similarity scores in expander
         context_parts = []
         for chunk, fname, score in retrieved:
-            context_parts.append(f"[From {fname} (relevance: {score:.2f})]\n{chunk}")
+            context_parts.append(f"[From {fname}]\n{chunk}")
         context = "\n\n".join(context_parts)
 
-    system_prompt = (
-        "You are a helpful document assistant. Answer the question based ONLY on the provided context. "
-        "If the answer cannot be found in the context, say 'I cannot find this information in the documents.' "
-        "Do not make up answers. Be concise and accurate."
-    )
+    system_prompt = "You are a helpful document assistant. Answer based only on the context."
     user_prompt = f"Context:\n{context}\n\nQuestion: {question}"
 
     with st.chat_message("assistant"):
-        with st.spinner("Thinking..."):
-            answer = groq_answer(system_prompt, user_prompt)
+        with st.spinner("💭 Thinking..."):
+            answer = groq_answer(system_prompt, user_prompt, question)
 
         response_placeholder = st.empty()
         stream_response(answer, response_placeholder)
 
-        with st.expander("🔍 View retrieved context"):
+        # Show confidence and retrieved context
+        col1, col2 = st.columns([0.2, 0.8])
+        with col1:
+            st.caption(f"Confidence: {confidence_emoji}")
+        
+        with st.expander(f"🔍 View {len(retrieved)} retrieved chunks"):
             for i, (chunk, fname, score) in enumerate(retrieved, start=1):
                 st.markdown(f"**Chunk {i} from {fname}** (relevance: {score:.2f})")
                 st.info(chunk[:300] + "..." if len(chunk) > 300 else chunk)
