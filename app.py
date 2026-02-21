@@ -56,7 +56,7 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 
 if "embeddings" not in st.session_state:
-    st.session_state.embeddings = None  # Store embeddings instead of faiss index
+    st.session_state.embeddings = None
 
 if "chunks" not in st.session_state:
     st.session_state.chunks = []
@@ -326,8 +326,8 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
     st.session_state.dark_mode = st.toggle("🌙 Dark Mode", value=st.session_state.dark_mode)
-    TOP_K = st.slider("Top chunks to retrieve", 2, 8, 4)
-    st.caption("More chunks = better recall but can add noise.")
+    TOP_K = st.slider("Number of chunks to retrieve", 3, 10, 5)  # Increased default
+    st.caption("More chunks = better context")
     st.divider()
     
     st.markdown("### 📊 Analytics")
@@ -494,28 +494,45 @@ embedder = get_embedder()
 # =============================
 def extract_text(file) -> str:
     name = file.name.lower()
-    if name.endswith(".pdf"):
-        reader = PdfReader(file)
-        parts = []
-        for page in reader.pages:
-            t = page.extract_text() or ""
-            if t.strip():
-                parts.append(t)
-        return "\n".join(parts)
-    if name.endswith(".docx"):
-        d = docx.Document(file)
-        return "\n".join([p.text for p in d.paragraphs if p.text.strip()])
-    if name.endswith(".txt"):
-        return file.read().decode("utf-8", errors="ignore")
-    return ""
+    text = ""
+    
+    try:
+        if name.endswith(".pdf"):
+            reader = PdfReader(file)
+            for page in reader.pages:
+                t = page.extract_text() or ""
+                if t.strip():
+                    text += t + "\n"
+                    
+        elif name.endswith(".docx"):
+            d = docx.Document(file)
+            for p in d.paragraphs:
+                if p.text.strip():
+                    text += p.text + "\n"
+                    
+        elif name.endswith(".txt"):
+            text = file.read().decode("utf-8", errors="ignore")
+    except Exception as e:
+        st.warning(f"Error reading {file.name}: {str(e)}")
+        return ""
+    
+    return text
 
-def chunk_text(text: str, chunk_size=900, overlap=180):
+def chunk_text(text: str, chunk_size=500, overlap=100):
+    """Split text into smaller chunks for better retrieval"""
+    if not text:
+        return []
+    
+    words = text.split()
     chunks = []
-    step = max(1, chunk_size - overlap)
-    for i in range(0, len(text), step):
-        c = text[i:i+chunk_size].strip()
-        if c:
-            chunks.append(c)
+    
+    for i in range(0, len(words), chunk_size - overlap):
+        chunk_words = words[i:i + chunk_size]
+        if chunk_words:
+            chunk = " ".join(chunk_words)
+            if len(chunk) > 50:  # Only keep meaningful chunks
+                chunks.append(chunk)
+    
     return chunks
 
 def compute_files_hash(files) -> str:
@@ -534,21 +551,27 @@ def build_embeddings_from_files(files):
     for f in files:
         text = extract_text(f)
         if not text.strip():
+            st.warning(f"No readable text found in {f.name}")
             continue
+            
         chunks = chunk_text(text)
         for c in chunks:
             all_chunks.append(c)
             all_meta.append({"file": f.name})
+        
+        st.info(f"Created {len(chunks)} chunks from {f.name}")
     
     if not all_chunks:
         return None, [], []
     
     # Create embeddings
-    embeddings = embedder.encode(all_chunks, convert_to_numpy=True, show_progress_bar=False)
+    with st.spinner("Creating embeddings..."):
+        embeddings = embedder.encode(all_chunks, convert_to_numpy=True, show_progress_bar=False)
+    
     return embeddings, all_chunks, all_meta
 
-def find_similar_chunks(query_embedding, embeddings, chunks, meta, k=4):
-    """Find similar chunks using cosine similarity (no faiss needed)"""
+def find_similar_chunks(query_embedding, embeddings, chunks, meta, k=5):
+    """Find similar chunks using cosine similarity"""
     if embeddings is None or len(embeddings) == 0:
         return []
     
@@ -558,23 +581,26 @@ def find_similar_chunks(query_embedding, embeddings, chunks, meta, k=4):
     # Get top k indices
     top_indices = np.argsort(similarities)[-k:][::-1]
     
-    # Return chunks and metadata
+    # Return all top results
     results = []
     for idx in top_indices:
-        if similarities[idx] > 0.3:  # Only return if similarity is above threshold
-            results.append((chunks[idx], meta[idx]["file"], similarities[idx]))
+        results.append((chunks[idx], meta[idx]["file"], similarities[idx]))
     
     return results
 
 def groq_answer(system_prompt: str, user_prompt: str) -> str:
-    resp = client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-    )
-    return resp.choices[0].message.content
+    try:
+        resp = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.3,  # Lower temperature for more focused answers
+        )
+        return resp.choices[0].message.content
+    except Exception as e:
+        return f"Error: {str(e)}"
 
 def stream_response(text, placeholder):
     displayed = ""
@@ -585,7 +611,7 @@ def stream_response(text, placeholder):
             placeholder.markdown(displayed + "▌")
         else:
             placeholder.markdown(displayed)
-        time.sleep(0.03)
+        time.sleep(0.02)
 
 
 # =============================
@@ -594,7 +620,7 @@ def stream_response(text, placeholder):
 if uploaded_files:
     new_hash = compute_files_hash(uploaded_files)
     if st.session_state.files_hash != new_hash:
-        with st.spinner("Building search index..."):
+        with st.spinner("Processing documents..."):
             embeddings, chunks, meta = build_embeddings_from_files(uploaded_files)
             st.session_state.embeddings = embeddings
             st.session_state.chunks = chunks
@@ -602,9 +628,9 @@ if uploaded_files:
             st.session_state.files_hash = new_hash
         
         if embeddings is None:
-            st.warning("No readable text found in uploaded files.")
+            st.error("No readable text found in uploaded files. Please check your documents.")
         else:
-            st.success(f"Loaded {len(uploaded_files)} file(s) • {len(chunks)} chunks")
+            st.success(f"✅ Loaded {len(uploaded_files)} file(s) • {len(chunks)} chunks ready!")
 
 
 # =============================
@@ -630,42 +656,45 @@ if question:
         st.markdown(question)
 
     if not uploaded_files or st.session_state.embeddings is None:
-        st.warning("Upload documents first.")
+        st.warning("Please upload documents first.")
         st.stop()
 
     # Get query embedding
-    q_emb = embedder.encode([question], convert_to_numpy=True)[0]
-    
-    # Find similar chunks without faiss
-    retrieved = find_similar_chunks(q_emb, st.session_state.embeddings, 
-                                    st.session_state.chunks, st.session_state.meta, k=TOP_K)
+    with st.spinner("Searching documents..."):
+        q_emb = embedder.encode([question], convert_to_numpy=True)[0]
+        
+        # Find similar chunks
+        retrieved = find_similar_chunks(q_emb, st.session_state.embeddings, 
+                                        st.session_state.chunks, st.session_state.meta, k=TOP_K)
 
     if not retrieved:
         context = "No relevant information found in the documents."
+        st.info("No relevant chunks found. Try a different question or upload more documents.")
     else:
-        context = "\n\n".join([f"[{fname}]\n{chunk}" for chunk, fname, score in retrieved])
+        # Show similarity scores in expander
+        context_parts = []
+        for chunk, fname, score in retrieved:
+            context_parts.append(f"[From {fname} (relevance: {score:.2f})]\n{chunk}")
+        context = "\n\n".join(context_parts)
 
     system_prompt = (
-        "You are a helpful assistant. Answer ONLY using the provided context. "
-        "If the answer is not in the context, say exactly: Not found in the document."
+        "You are a helpful document assistant. Answer the question based ONLY on the provided context. "
+        "If the answer cannot be found in the context, say 'I cannot find this information in the documents.' "
+        "Do not make up answers. Be concise and accurate."
     )
     user_prompt = f"Context:\n{context}\n\nQuestion: {question}"
 
     with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
-            try:
-                answer = groq_answer(system_prompt, user_prompt)
-            except Exception as e:
-                st.error(f"Groq call failed: {e}")
-                st.stop()
+            answer = groq_answer(system_prompt, user_prompt)
 
         response_placeholder = st.empty()
         stream_response(answer, response_placeholder)
 
-        with st.expander("🔎 Retrieved Context Used"):
+        with st.expander("🔍 View retrieved context"):
             for i, (chunk, fname, score) in enumerate(retrieved, start=1):
-                st.markdown(f"**Chunk {i} • {fname}** (similarity: {score:.2f})")
-                st.info(chunk)
+                st.markdown(f"**Chunk {i} from {fname}** (relevance: {score:.2f})")
+                st.info(chunk[:300] + "..." if len(chunk) > 300 else chunk)
 
     st.session_state.messages.append({"role": "assistant", "content": answer})
     st.rerun()
@@ -675,15 +704,15 @@ if question:
 # SUGGESTED QUESTIONS
 # =============================
 if uploaded_files and st.session_state.embeddings is not None and len(st.session_state.messages) == 0:
-    st.markdown("### 💡 Suggested Questions")
+    st.markdown("### 💡 Try asking:")
     suggestion_cols = st.columns(3)
     suggestions = [
-        "Summarize the main points",
-        "What are the key findings?",
-        "What methodology was used?",
-        "Who are the authors?",
-        "What is the conclusion?",
-        "List important dates mentioned"
+        "What is the main topic?",
+        "Summarize the key points",
+        "What are the conclusions?",
+        "List important findings",
+        "Who is the target audience?",
+        "What methodology is used?"
     ]
     
     for i, suggestion in enumerate(suggestions[:3]):
@@ -691,4 +720,3 @@ if uploaded_files and st.session_state.embeddings is not None and len(st.session
             if st.button(suggestion, use_container_width=True):
                 st.session_state.suggested_question = suggestion
                 st.rerun()
-
