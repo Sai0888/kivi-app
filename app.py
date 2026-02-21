@@ -1,32 +1,17 @@
 import os
 import hashlib
 import numpy as np
+import faiss
 import streamlit as st
 import time
 import pandas as pd
 
-from dotenv import load_dotenv
 from groq import Groq
 from sentence_transformers import SentenceTransformer
 
 from pypdf import PdfReader
 import docx
 
-# Try different faiss import methods
-try:
-    import faiss
-except ImportError:
-    try:
-        import faiss as faiss
-    except ImportError:
-        st.error("""
-        ⚠️ **FAISS installation in progress...** 
-        
-        Please wait a moment and refresh the page. 
-        
-        If this persists, the app is still installing dependencies.
-        """)
-        st.stop()
 
 # =============================
 # PAGE CONFIG (ONLY ONCE)
@@ -35,13 +20,31 @@ st.set_page_config(page_title="Kivi", page_icon="📄", layout="wide")
 
 
 # =============================
-# LOAD ENV (SECURE)
+# GET API KEY (Streamlit Secrets ONLY - NO dotenv)
 # =============================
-load_dotenv()
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+try:
+    GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
+except Exception as e:
+    st.error("""
+    ⚠️ **GROQ_API_KEY not found in Streamlit Secrets!** 
+    
+    Please add your API key:
+    
+    1. Go to your app dashboard on [share.streamlit.io](https://share.streamlit.io)
+    2. Click on your app → **Manage app** → **Settings** → **Secrets**
+    3. Add this EXACT format:
+    
+    ```
+    GROQ_API_KEY = "gsk_your_actual_api_key_here"
+    ```
+    
+    4. Make sure to include the quotes!
+    5. Click Save and restart the app
+    """)
+    st.stop()
 
 if not GROQ_API_KEY or not GROQ_API_KEY.startswith("gsk_"):
-    st.error("GROQ_API_KEY not found or invalid. Put it in .env (same folder as app.py).")
+    st.error("Invalid GROQ_API_KEY format. It should start with 'gsk_'")
     st.stop()
 
 client = Groq(api_key=GROQ_API_KEY)
@@ -703,5 +706,4 @@ if uploaded_files and st.session_state.index is not None and len(st.session_stat
         with suggestion_cols[i]:
             if st.button(suggestion, use_container_width=True):
                 st.session_state.suggested_question = suggestion
-
                 st.rerun()
