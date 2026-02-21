@@ -1,10 +1,11 @@
 import os
 import hashlib
 import numpy as np
-import faiss
 import streamlit as st
 import time
 import pandas as pd
+import pickle
+from sklearn.metrics.pairwise import cosine_similarity
 
 # Import with error handling
 try:
@@ -14,7 +15,6 @@ except ImportError:
     ⚠️ **Groq package is still installing...** 
     
     Please wait 2-3 minutes and refresh the page.
-    If this persists, check your requirements.txt has 'groq==0.4.2'
     """)
     st.stop()
 
@@ -38,11 +38,7 @@ except Exception as e:
     st.error("""
     ⚠️ **GROQ_API_KEY not found in Streamlit Secrets!** 
     
-    Please add your API key in the Secrets section with this format:
-    
-    ```
-    GROQ_API_KEY = "gsk_your_actual_api_key_here"
-    ```
+    Please add your API key in the Secrets section.
     """)
     st.stop()
 
@@ -60,8 +56,8 @@ MODEL_NAME = "llama-3.1-8b-instant"
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-if "index" not in st.session_state:
-    st.session_state.index = None
+if "embeddings" not in st.session_state:
+    st.session_state.embeddings = None  # Store embeddings instead of faiss index
 
 if "chunks" not in st.session_state:
     st.session_state.chunks = []
@@ -495,7 +491,7 @@ embedder = get_embedder()
 
 
 # =============================
-# HELPERS
+# HELPER FUNCTIONS
 # =============================
 def extract_text(file) -> str:
     name = file.name.lower()
@@ -531,9 +527,11 @@ def compute_files_hash(files) -> str:
         h.update(data)
     return h.hexdigest()
 
-def build_index_from_files(files):
+def build_embeddings_from_files(files):
+    """Build embeddings without faiss"""
     all_chunks = []
     all_meta = []
+    
     for f in files:
         text = extract_text(f)
         if not text.strip():
@@ -542,13 +540,32 @@ def build_index_from_files(files):
         for c in chunks:
             all_chunks.append(c)
             all_meta.append({"file": f.name})
+    
     if not all_chunks:
         return None, [], []
-    emb = embedder.encode(all_chunks, convert_to_numpy=True, show_progress_bar=False).astype("float32")
-    dim = emb.shape[1]
-    index = faiss.IndexFlatL2(dim)
-    index.add(emb)
-    return index, all_chunks, all_meta
+    
+    # Create embeddings
+    embeddings = embedder.encode(all_chunks, convert_to_numpy=True, show_progress_bar=False)
+    return embeddings, all_chunks, all_meta
+
+def find_similar_chunks(query_embedding, embeddings, chunks, meta, k=4):
+    """Find similar chunks using cosine similarity (no faiss needed)"""
+    if embeddings is None or len(embeddings) == 0:
+        return []
+    
+    # Calculate cosine similarity
+    similarities = cosine_similarity([query_embedding], embeddings)[0]
+    
+    # Get top k indices
+    top_indices = np.argsort(similarities)[-k:][::-1]
+    
+    # Return chunks and metadata
+    results = []
+    for idx in top_indices:
+        if similarities[idx] > 0.3:  # Only return if similarity is above threshold
+            results.append((chunks[idx], meta[idx]["file"], similarities[idx]))
+    
+    return results
 
 def groq_answer(system_prompt: str, user_prompt: str) -> str:
     resp = client.chat.completions.create(
@@ -579,12 +596,13 @@ if uploaded_files:
     new_hash = compute_files_hash(uploaded_files)
     if st.session_state.files_hash != new_hash:
         with st.spinner("Building search index..."):
-            idx, chunks, meta = build_index_from_files(uploaded_files)
-            st.session_state.index = idx
+            embeddings, chunks, meta = build_embeddings_from_files(uploaded_files)
+            st.session_state.embeddings = embeddings
             st.session_state.chunks = chunks
             st.session_state.meta = meta
             st.session_state.files_hash = new_hash
-        if idx is None:
+        
+        if embeddings is None:
             st.warning("No readable text found in uploaded files.")
         else:
             st.success(f"Loaded {len(uploaded_files)} file(s) • {len(chunks)} chunks")
@@ -612,19 +630,21 @@ if question:
     with st.chat_message("user"):
         st.markdown(question)
 
-    if not uploaded_files or st.session_state.index is None:
+    if not uploaded_files or st.session_state.embeddings is None:
         st.warning("Upload documents first.")
         st.stop()
 
-    q_emb = embedder.encode([question], convert_to_numpy=True).astype("float32")
-    D, I = st.session_state.index.search(q_emb, k=TOP_K)
+    # Get query embedding
+    q_emb = embedder.encode([question], convert_to_numpy=True)[0]
+    
+    # Find similar chunks without faiss
+    retrieved = find_similar_chunks(q_emb, st.session_state.embeddings, 
+                                    st.session_state.chunks, st.session_state.meta, k=TOP_K)
 
-    retrieved = []
-    for idx in I[0]:
-        if 0 <= idx < len(st.session_state.chunks):
-            retrieved.append((st.session_state.chunks[idx], st.session_state.meta[idx]["file"]))
-
-    context = "\n\n".join([f"[{fname}]\n{chunk}" for chunk, fname in retrieved])
+    if not retrieved:
+        context = "No relevant information found in the documents."
+    else:
+        context = "\n\n".join([f"[{fname}]\n{chunk}" for chunk, fname, score in retrieved])
 
     system_prompt = (
         "You are a helpful assistant. Answer ONLY using the provided context. "
@@ -644,8 +664,8 @@ if question:
         stream_response(answer, response_placeholder)
 
         with st.expander("🔎 Retrieved Context Used"):
-            for i, (chunk, fname) in enumerate(retrieved, start=1):
-                st.markdown(f"**Chunk {i} • {fname}**")
+            for i, (chunk, fname, score) in enumerate(retrieved, start=1):
+                st.markdown(f"**Chunk {i} • {fname}** (similarity: {score:.2f})")
                 st.info(chunk)
 
     st.session_state.messages.append({"role": "assistant", "content": answer})
@@ -655,7 +675,7 @@ if question:
 # =============================
 # SUGGESTED QUESTIONS
 # =============================
-if uploaded_files and st.session_state.index is not None and len(st.session_state.messages) == 0:
+if uploaded_files and st.session_state.embeddings is not None and len(st.session_state.messages) == 0:
     st.markdown("### 💡 Suggested Questions")
     suggestion_cols = st.columns(3)
     suggestions = [
