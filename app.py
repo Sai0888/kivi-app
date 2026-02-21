@@ -1,7 +1,6 @@
 import os
 import hashlib
 import numpy as np
-import faiss
 import streamlit as st
 import time
 import pandas as pd
@@ -12,6 +11,25 @@ from sentence_transformers import SentenceTransformer
 from pypdf import PdfReader
 import docx
 
+# Try to import faiss with better error handling
+try:
+    import faiss
+except ImportError as e:
+    st.error("""
+    ⚠️ **FAISS is still installing...** 
+    
+    This may take 2-3 minutes on first deployment.
+    
+    Please:
+    1. Wait 2-3 minutes
+    2. Refresh this page
+    
+    If this persists, check that you have:
+    - `faiss-cpu==1.7.4` in requirements.txt
+    - `libgomp1` in packages.txt
+    """)
+    st.stop()
+
 
 # =============================
 # PAGE CONFIG (ONLY ONCE)
@@ -20,7 +38,7 @@ st.set_page_config(page_title="Kivi", page_icon="📄", layout="wide")
 
 
 # =============================
-# GET API KEY (Streamlit Secrets ONLY - NO dotenv)
+# GET API KEY (Streamlit Secrets ONLY)
 # =============================
 try:
     GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
@@ -28,18 +46,7 @@ except Exception as e:
     st.error("""
     ⚠️ **GROQ_API_KEY not found in Streamlit Secrets!** 
     
-    Please add your API key:
-    
-    1. Go to your app dashboard on [share.streamlit.io](https://share.streamlit.io)
-    2. Click on your app → **Manage app** → **Settings** → **Secrets**
-    3. Add this EXACT format:
-    
-    ```
-    GROQ_API_KEY = "gsk_your_actual_api_key_here"
-    ```
-    
-    4. Make sure to include the quotes!
-    5. Click Save and restart the app
+    Please add your API key in the Secrets section.
     """)
     st.stop()
 
@@ -52,7 +59,7 @@ MODEL_NAME = "llama-3.1-8b-instant"
 
 
 # =============================
-# SESSION STATE (init early)
+# SESSION STATE
 # =============================
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -64,7 +71,7 @@ if "chunks" not in st.session_state:
     st.session_state.chunks = []
 
 if "meta" not in st.session_state:
-    st.session_state.meta = []  # list of {"file":...}
+    st.session_state.meta = []
 
 if "files_hash" not in st.session_state:
     st.session_state.files_hash = None
@@ -82,7 +89,6 @@ if "suggested_question" not in st.session_state:
 # =============================
 # DARK MODE TOGGLE & CSS
 # =============================
-# Define CSS based on dark mode
 def get_css(dark_mode):
     if dark_mode:
         return """
@@ -377,7 +383,7 @@ with st.sidebar:
 
 
 # =============================
-# COOL UNIQUE LOGO (No status chip)
+# COOL UNIQUE LOGO
 # =============================
 st.markdown("""
 <style>
@@ -475,7 +481,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Clear chat button only (no status chip)
+# Clear chat button only
 col1, col2 = st.columns([0.9, 0.1])
 with col2:
     if st.button("🗑 Clear", use_container_width=True):
@@ -505,7 +511,7 @@ uploaded_files = st.file_uploader(
 
 
 # =============================
-# EMBEDDER (LOCAL = FREE)
+# EMBEDDER
 # =============================
 @st.cache_resource
 def get_embedder():
