@@ -1,4 +1,5 @@
 streamlit
+faiss-cpu
 numpy
 python-dotenv
 groq
@@ -6,3 +7,4 @@ sentence-transformers
 pypdf
 python-docx
 pandas
+
