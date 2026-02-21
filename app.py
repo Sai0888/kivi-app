@@ -1,38 +1,30 @@
 import os
 import hashlib
 import numpy as np
+import faiss
 import streamlit as st
 import time
 import pandas as pd
 
-from groq import Groq
-from sentence_transformers import SentenceTransformer
-
-from pypdf import PdfReader
-import docx
-
-# Try to import faiss with better error handling
+# Import with error handling
 try:
-    import faiss
-except ImportError as e:
+    from groq import Groq
+except ImportError:
     st.error("""
-    ⚠️ **FAISS is still installing...** 
+    ⚠️ **Groq package is still installing...** 
     
-    This may take 2-3 minutes on first deployment.
-    
-    Please:
-    1. Wait 2-3 minutes
-    2. Refresh this page
-    
-    If this persists, check that you have:
-    - `faiss-cpu==1.7.4` in requirements.txt
-    - `libgomp1` in packages.txt
+    Please wait 2-3 minutes and refresh the page.
+    If this persists, check your requirements.txt has 'groq==0.4.2'
     """)
     st.stop()
 
+from sentence_transformers import SentenceTransformer
+from pypdf import PdfReader
+import docx
+
 
 # =============================
-# PAGE CONFIG (ONLY ONCE)
+# PAGE CONFIG
 # =============================
 st.set_page_config(page_title="Kivi", page_icon="📄", layout="wide")
 
@@ -46,7 +38,11 @@ except Exception as e:
     st.error("""
     ⚠️ **GROQ_API_KEY not found in Streamlit Secrets!** 
     
-    Please add your API key in the Secrets section.
+    Please add your API key in the Secrets section with this format:
+    
+    ```
+    GROQ_API_KEY = "gsk_your_actual_api_key_here"
+    ```
     """)
     st.stop()
 
@@ -116,7 +112,6 @@ def get_css(dark_mode):
             background: #242424;
         }
 
-        /* Premium card */
         .kivi-card{
             background: #141414;
             border: 1px solid #242424;
@@ -136,7 +131,6 @@ def get_css(dark_mode):
             margin-bottom:10px;
         }
 
-        /* Upload area */
         .upload-area {
             background: #141414;
             border: 1px dashed #333333;
@@ -161,7 +155,6 @@ def get_css(dark_mode):
             font-size: 13px;
         }
 
-        /* Buttons */
         div.stButton > button{
             border-radius: 10px !important;
             padding: 6px 12px !important;
@@ -175,7 +168,6 @@ def get_css(dark_mode):
             background: #333333 !important;
         }
 
-        /* Chat bubbles */
         .stChatMessage>div{
             border-radius: 12px !important;
             padding: 12px 16px;
@@ -194,26 +186,22 @@ def get_css(dark_mode):
             border: 1px solid #242424;
         }
 
-        /* Expander */
         [data-testid="stExpander"]{
             border-radius: 12px !important;
             border: 1px solid #242424 !important;
             background: #141414 !important;
         }
 
-        /* Text colors */
         .stMarkdown, p, li, h1, h2, h3, h4, h5, h6 {
             color: #FFFFFF !important;
         }
 
-        /* Input field */
         .stChatInputContainer {
             background: #141414 !important;
             border: 1px solid #242424 !important;
             border-radius: 12px !important;
         }
         
-        /* Success/Warning messages */
         .stSuccess, .stWarning {
             background: #141414 !important;
             border: 1px solid #242424 !important;
@@ -243,7 +231,6 @@ def get_css(dark_mode):
             background: #EEEEEE;
         }
 
-        /* Premium card */
         .kivi-card{
             background: #F8F8F8;
             border: 1px solid #EEEEEE;
@@ -263,7 +250,6 @@ def get_css(dark_mode):
             margin-bottom:10px;
         }
 
-        /* Upload area */
         .upload-area {
             background: #F8F8F8;
             border: 1px dashed #DDDDDD;
@@ -288,7 +274,6 @@ def get_css(dark_mode):
             font-size: 13px;
         }
 
-        /* Buttons */
         div.stButton > button{
             border-radius: 10px !important;
             padding: 6px 12px !important;
@@ -302,7 +287,6 @@ def get_css(dark_mode):
             background: #FFFFFF !important;
         }
 
-        /* Chat bubbles */
         .stChatMessage>div{
             border-radius: 12px !important;
             padding: 12px 16px;
@@ -319,13 +303,11 @@ def get_css(dark_mode):
             border: 1px solid #EEEEEE;
         }
 
-        /* Expander */
         [data-testid="stExpander"]{
             border-radius: 12px !important;
             border: 1px solid #EEEEEE !important;
         }
 
-        /* Input field */
         .stChatInputContainer {
             background: #F8F8F8 !important;
             border: 1px solid #EEEEEE !important;
@@ -348,24 +330,17 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    # Dark mode toggle
     st.session_state.dark_mode = st.toggle("🌙 Dark Mode", value=st.session_state.dark_mode)
-
     TOP_K = st.slider("Top chunks to retrieve", 2, 8, 4)
     st.caption("More chunks = better recall but can add noise.")
-
     st.divider()
     
-    # Analytics
     st.markdown("### 📊 Analytics")
     st.write("Chunks:", len(st.session_state.chunks))
     st.write("Messages:", len(st.session_state.messages))
-
     st.divider()
     
-    # Saved Conversations
     st.markdown("### 💾 Saved Chats")
-    
     if st.button("📌 Save Current Chat", use_container_width=True):
         if st.session_state.messages:
             st.session_state.saved_conversations.append({
@@ -374,7 +349,6 @@ with st.sidebar:
             })
             st.success("Chat saved!")
     
-    # Display saved conversations
     for i, conv in enumerate(st.session_state.saved_conversations[-5:]):
         msg_count = len(conv["messages"])
         if st.button(f"📄 {conv['timestamp']} - {msg_count} msgs", key=f"saved_{i}", use_container_width=True):
@@ -481,7 +455,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Clear chat button only
+# Clear chat button
 col1, col2 = st.columns([0.9, 0.1])
 with col2:
     if st.button("🗑 Clear", use_container_width=True):
@@ -525,7 +499,6 @@ embedder = get_embedder()
 # =============================
 def extract_text(file) -> str:
     name = file.name.lower()
-
     if name.endswith(".pdf"):
         reader = PdfReader(file)
         parts = []
@@ -534,14 +507,11 @@ def extract_text(file) -> str:
             if t.strip():
                 parts.append(t)
         return "\n".join(parts)
-
     if name.endswith(".docx"):
         d = docx.Document(file)
         return "\n".join([p.text for p in d.paragraphs if p.text.strip()])
-
     if name.endswith(".txt"):
         return file.read().decode("utf-8", errors="ignore")
-
     return ""
 
 def chunk_text(text: str, chunk_size=900, overlap=180):
@@ -564,20 +534,16 @@ def compute_files_hash(files) -> str:
 def build_index_from_files(files):
     all_chunks = []
     all_meta = []
-
     for f in files:
         text = extract_text(f)
         if not text.strip():
             continue
-
         chunks = chunk_text(text)
         for c in chunks:
             all_chunks.append(c)
             all_meta.append({"file": f.name})
-
     if not all_chunks:
         return None, [], []
-
     emb = embedder.encode(all_chunks, convert_to_numpy=True, show_progress_bar=False).astype("float32")
     dim = emb.shape[1]
     index = faiss.IndexFlatL2(dim)
@@ -595,10 +561,8 @@ def groq_answer(system_prompt: str, user_prompt: str) -> str:
     return resp.choices[0].message.content
 
 def stream_response(text, placeholder):
-    """Simulate streaming for better UX"""
     displayed = ""
     words = text.split()
-    
     for i, word in enumerate(words):
         displayed += word + " "
         if i < len(words) - 1:
@@ -620,7 +584,6 @@ if uploaded_files:
             st.session_state.chunks = chunks
             st.session_state.meta = meta
             st.session_state.files_hash = new_hash
-
         if idx is None:
             st.warning("No readable text found in uploaded files.")
         else:
@@ -640,7 +603,6 @@ for msg in st.session_state.messages:
 # =============================
 question = st.chat_input("Ask something about your documents...")
 
-# Handle suggested question if exists
 if st.session_state.suggested_question and not question:
     question = st.session_state.suggested_question
     st.session_state.suggested_question = None
@@ -678,7 +640,6 @@ if question:
                 st.error(f"Groq call failed: {e}")
                 st.stop()
 
-        # Stream the response
         response_placeholder = st.empty()
         stream_response(answer, response_placeholder)
 
@@ -688,8 +649,6 @@ if question:
                 st.info(chunk)
 
     st.session_state.messages.append({"role": "assistant", "content": answer})
-    
-    # Force rerun to show the complete message
     st.rerun()
 
 
