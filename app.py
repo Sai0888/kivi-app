@@ -1,7 +1,6 @@
 import os
 import hashlib
 import numpy as np
-import faiss
 import streamlit as st
 import time
 import pandas as pd
@@ -13,6 +12,21 @@ from sentence_transformers import SentenceTransformer
 from pypdf import PdfReader
 import docx
 
+# Try different faiss import methods
+try:
+    import faiss
+except ImportError:
+    try:
+        import faiss as faiss
+    except ImportError:
+        st.error("""
+        ⚠️ **FAISS installation in progress...** 
+        
+        Please wait a moment and refresh the page. 
+        
+        If this persists, the app is still installing dependencies.
+        """)
+        st.stop()
 
 # =============================
 # PAGE CONFIG (ONLY ONCE)
@@ -689,4 +703,5 @@ if uploaded_files and st.session_state.index is not None and len(st.session_stat
         with suggestion_cols[i]:
             if st.button(suggestion, use_container_width=True):
                 st.session_state.suggested_question = suggestion
+
                 st.rerun()
