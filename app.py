@@ -39,14 +39,12 @@ client = Groq(api_key=GROQ_API_KEY)
 MODEL_NAME = "llama-3.1-8b-instant"
 
 # =============================
-# DATABASE SETUP - REAL USER STORAGE
+# DATABASE SETUP
 # =============================
 def init_database():
-    """Initialize SQLite database for user data"""
     conn = sqlite3.connect('kivi_users.db')
     c = conn.cursor()
     
-    # Create users table
     c.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -57,7 +55,6 @@ def init_database():
         )
     ''')
     
-    # Create user_data table for storing chats and documents
     c.execute('''
         CREATE TABLE IF NOT EXISTS user_data (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,11 +69,10 @@ def init_database():
     conn.commit()
     conn.close()
 
-# Initialize database
 init_database()
 
 # =============================
-# USER AUTHENTICATION CLASS - FULLY WORKING
+# USER AUTHENTICATION CLASS
 # =============================
 class UserAuth:
     def __init__(self):
@@ -84,24 +80,22 @@ class UserAuth:
             st.session_state.current_user = None
         if 'auth_page' not in st.session_state:
             st.session_state.auth_page = "login"
+        if 'sidebar_collapsed' not in st.session_state:
+            st.session_state.sidebar_collapsed = False
     
     def hash_password(self, password):
-        """Hash password using SHA-256"""
         return hashlib.sha256(password.encode()).hexdigest()
     
     def register_user(self, email, password, name):
-        """Register a new user"""
         try:
             conn = sqlite3.connect('kivi_users.db')
             c = conn.cursor()
             
-            # Check if user exists
             c.execute("SELECT email FROM users WHERE email = ?", (email,))
             if c.fetchone():
                 conn.close()
                 return False, "Email already registered"
             
-            # Insert new user
             password_hash = self.hash_password(password)
             c.execute(
                 "INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?)",
@@ -110,19 +104,17 @@ class UserAuth:
             conn.commit()
             conn.close()
             
-            # Auto login after registration
             st.session_state.current_user = {
                 "email": email,
                 "name": name
             }
             
-            return True, "Registration successful!"
+            return True, "Welcome to Kivi!"
             
         except Exception as e:
             return False, f"Registration failed: {str(e)}"
     
     def login_user(self, email, password):
-        """Login existing user"""
         try:
             conn = sqlite3.connect('kivi_users.db')
             c = conn.cursor()
@@ -140,7 +132,7 @@ class UserAuth:
                     "email": email,
                     "name": result[0]
                 }
-                return True, "Login successful!"
+                return True, "Welcome back!"
             else:
                 return False, "Invalid email or password"
                 
@@ -148,7 +140,6 @@ class UserAuth:
             return False, f"Login failed: {str(e)}"
     
     def logout(self):
-        """Logout current user"""
         st.session_state.current_user = None
         st.session_state.messages = []
         st.session_state.embeddings = None
@@ -157,7 +148,6 @@ class UserAuth:
         return True, "Logged out successfully"
     
     def save_user_chat(self, chat_name, messages):
-        """Save chat to user's data"""
         if not st.session_state.current_user:
             return False, "Not logged in"
         
@@ -182,7 +172,6 @@ class UserAuth:
             return False, f"Failed to save: {str(e)}"
     
     def get_user_chats(self):
-        """Get all chats for current user"""
         if not st.session_state.current_user:
             return []
         
@@ -204,7 +193,6 @@ class UserAuth:
             return []
     
     def save_user_document(self, doc_name, chunks_count):
-        """Save document info to user's data"""
         if not st.session_state.current_user:
             return
         
@@ -228,7 +216,6 @@ class UserAuth:
             pass
     
     def get_user_documents(self):
-        """Get all documents for current user"""
         if not st.session_state.current_user:
             return []
         
@@ -249,7 +236,6 @@ class UserAuth:
         except:
             return []
 
-# Initialize auth
 auth = UserAuth()
 
 # =============================
@@ -266,10 +252,10 @@ if "meta" not in st.session_state:
 if "files_hash" not in st.session_state:
     st.session_state.files_hash = None
 if "current_chat_name" not in st.session_state:
-    st.session_state.current_chat_name = "Untitled Chat"
+    st.session_state.current_chat_name = "New Chat"
 
 # =============================
-# WORLD-CLASS CSS
+# CLEAN PROFESSIONAL CSS
 # =============================
 st.markdown("""
 <style>
@@ -290,239 +276,273 @@ html, body, [class*="css"] {
 /* Main container */
 .main .block-container {
     padding: 2rem 2.5rem;
-    max-width: 1400px;
+    max-width: 1200px;
     margin: 0 auto;
 }
 
 /* Hide Streamlit branding */
 #MainMenu, footer, header {
-    visibility: hidden;
     display: none;
 }
 
 /* ===================================== */
-/* KIWI LOGO */
+/* KIWI LOGO - CLEAN */
 /* ===================================== */
 .kivi-logo-container {
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-bottom: 2rem;
+    margin: 0 0 2rem 0;
 }
 
 .kivi-logo-mark {
-    width: 48px;
-    height: 48px;
+    width: 40px;
+    height: 40px;
     position: relative;
 }
 
 .kivi-shape-outer {
     position: absolute;
-    width: 48px;
-    height: 48px;
-    background: linear-gradient(135deg, #22C55E 0%, #16A34A 100%);
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #059669, #10B981);
     border-radius: 40% 60% 60% 40% / 50% 50% 50% 50%;
     transform: rotate(-5deg);
-    animation: float 6s ease-in-out infinite;
 }
 
 .kivi-shape-inner {
     position: absolute;
-    width: 32px;
-    height: 32px;
-    background: linear-gradient(135deg, #86EFAC 0%, #4ADE80 100%);
+    width: 28px;
+    height: 28px;
+    background: linear-gradient(135deg, #34D399, #6EE7B7);
     border-radius: 45% 55% 55% 45% / 45% 50% 50% 55%;
-    top: 8px;
-    left: 8px;
+    top: 6px;
+    left: 6px;
     transform: rotate(5deg);
     opacity: 0.9;
 }
 
 .kivi-dot {
     position: absolute;
-    width: 6px;
-    height: 6px;
-    background: #14532D;
+    width: 5px;
+    height: 5px;
+    background: #064E3B;
     border-radius: 50%;
-    top: 20px;
-    left: 20px;
-    animation: pulse 2s ease-in-out infinite;
-}
-
-@keyframes float {
-    0%, 100% { transform: rotate(-5deg) translateY(0); }
-    50% { transform: rotate(-5deg) translateY(-3px); }
-}
-
-@keyframes pulse {
-    0%, 100% { transform: scale(1); opacity: 0.6; }
-    50% { transform: scale(1.2); opacity: 1; }
+    top: 17px;
+    left: 17px;
 }
 
 .kivi-logo-text {
-    display: flex;
-    flex-direction: column;
-}
-
-.kivi-logo-main {
-    font-size: 32px;
+    font-size: 28px;
     font-weight: 600;
-    letter-spacing: -0.02em;
     color: #111827;
-    line-height: 1;
-}
-
-.kivi-logo-tagline {
-    font-size: 12px;
-    font-weight: 400;
-    color: #6B7280;
-    letter-spacing: 0.02em;
-    margin-top: 2px;
+    letter-spacing: -0.02em;
 }
 
 /* ===================================== */
-/* AUTHENTICATION PAGES */
+/* AUTHENTICATION PAGE - CLEAN */
 /* ===================================== */
-.auth-container {
-    max-width: 420px;
-    margin: 4rem auto;
-    padding: 2.5rem;
-    background: white;
-    border-radius: 24px;
-    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.1);
-    border: 1px solid #E5E7EB;
+.auth-wrapper {
+    display: flex;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #F9FAFB 0%, #F3F4F6 100%);
 }
 
-.auth-logo {
-    text-align: center;
-    margin-bottom: 2rem;
-}
-
-.auth-logo-icon {
-    width: 64px;
-    height: 64px;
-    background: linear-gradient(135deg, #22C55E, #16A34A);
-    border-radius: 20px;
+.auth-left {
+    flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 0 auto 1rem;
-    font-size: 2rem;
+    padding: 2rem;
 }
 
-.auth-title {
-    font-size: 1.8rem;
+.auth-card {
+    width: 100%;
+    max-width: 440px;
+    padding: 2.5rem;
+}
+
+.auth-header {
+    margin-bottom: 2rem;
+}
+
+.auth-header h1 {
+    font-size: 2.5rem;
     font-weight: 600;
     color: #111827;
     margin-bottom: 0.5rem;
-    text-align: center;
 }
 
-.auth-subtitle {
+.auth-header p {
     color: #6B7280;
-    font-size: 0.95rem;
-    text-align: center;
+    font-size: 1rem;
+}
+
+.auth-tabs {
+    display: flex;
+    gap: 1rem;
     margin-bottom: 2rem;
+    border-bottom: 2px solid #E5E7EB;
+    padding-bottom: 0.5rem;
+}
+
+.auth-tab {
+    background: none;
+    border: none;
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+    font-weight: 500;
+    color: #6B7280;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-radius: 8px;
+}
+
+.auth-tab:hover {
+    color: #059669;
+    background: #F3F4F6;
+}
+
+.auth-tab.active {
+    color: #059669;
+    border-bottom: 2px solid #059669;
+}
+
+.auth-input-group {
+    margin-bottom: 1.5rem;
+}
+
+.auth-input-group label {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 0.5rem;
 }
 
 .auth-input {
     width: 100%;
     padding: 0.875rem 1rem;
-    margin-bottom: 1rem;
-    border: 1px solid #E5E7EB;
+    border: 2px solid #E5E7EB;
     border-radius: 12px;
     font-size: 0.95rem;
     transition: all 0.2s;
+    background: white;
 }
 
 .auth-input:focus {
     outline: none;
-    border-color: #22C55E;
-    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+    border-color: #059669;
+    box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
 }
 
 .auth-button {
     width: 100%;
     padding: 0.875rem;
-    background: linear-gradient(135deg, #22C55E, #16A34A);
+    background: #059669;
     color: white;
     border: none;
     border-radius: 12px;
-    font-weight: 500;
-    font-size: 0.95rem;
+    font-weight: 600;
+    font-size: 1rem;
     cursor: pointer;
     transition: all 0.2s;
-    margin-bottom: 1rem;
+    margin: 1rem 0;
 }
 
 .auth-button:hover {
+    background: #047857;
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2);
 }
 
-.auth-switch {
+.auth-divider {
     text-align: center;
-    color: #6B7280;
+    margin: 1.5rem 0;
+    color: #9CA3AF;
     font-size: 0.9rem;
 }
 
-.auth-switch-button {
-    color: #22C55E;
-    font-weight: 500;
-    cursor: pointer;
-    background: none;
-    border: none;
-    padding: 0;
-    font-size: 0.9rem;
-}
-
-.auth-switch-button:hover {
-    text-decoration: underline;
-}
-
-.auth-demo {
-    margin-top: 2rem;
-    padding: 1rem;
+.auth-demo-card {
     background: #F9FAFB;
+    border: 2px solid #E5E7EB;
     border-radius: 12px;
-    border: 1px solid #E5E7EB;
+    padding: 1rem;
+    margin-top: 1rem;
 }
 
-.auth-demo p {
-    color: #6B7280;
-    font-size: 0.8rem;
+.auth-demo-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #374151;
     margin-bottom: 0.5rem;
 }
 
-.auth-demo-code {
-    color: #111827;
+.auth-demo-item {
+    background: white;
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
     font-size: 0.9rem;
+    color: #059669;
     font-family: monospace;
-    background: #F3F4F6;
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
+    border: 1px solid #E5E7EB;
+    margin: 0.25rem 0;
 }
 
-/* Sidebar */
+.auth-right {
+    flex: 1;
+    background: linear-gradient(135deg, #059669, #10B981);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    color: white;
+}
+
+.auth-quote {
+    max-width: 400px;
+}
+
+.auth-quote h2 {
+    font-size: 2rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.auth-quote p {
+    font-size: 1.1rem;
+    opacity: 0.9;
+    line-height: 1.6;
+}
+
+/* ===================================== */
+/* SIDEBAR - PERMANENT LIKE CHATGPT */
+/* ===================================== */
 section[data-testid="stSidebar"] {
-    background: #F9FAFB;
-    border-right: 1px solid #E5E7EB;
+    background: #F9FAFB !important;
+    border-right: 1px solid #E5E7EB !important;
+    width: 280px !important;
 }
 
+section[data-testid="stSidebar"] .block-container {
+    padding: 1.5rem 1rem !important;
+    max-width: 100% !important;
+}
+
+/* User profile - Fixed at top */
 .user-profile {
+    padding: 0 0 1.5rem 0;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid #E5E7EB;
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 1.5rem 1rem;
-    margin-bottom: 1rem;
-    border-bottom: 1px solid #E5E7EB;
 }
 
 .user-avatar {
     width: 44px;
     height: 44px;
-    background: linear-gradient(135deg, #22C55E, #16A34A);
-    border-radius: 12px;
+    background: #059669;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -531,211 +551,448 @@ section[data-testid="stSidebar"] {
     font-size: 1.2rem;
 }
 
-.user-info-name {
-    font-weight: 600;
-    color: #111827;
-    font-size: 1rem;
+.user-info {
+    flex: 1;
 }
 
-.user-info-email {
+.user-name {
+    font-weight: 600;
+    color: #111827;
+    font-size: 0.95rem;
+    margin-bottom: 0.25rem;
+}
+
+.user-email {
     font-size: 0.8rem;
     color: #6B7280;
+}
+
+/* Sidebar sections */
+.sidebar-section {
+    margin-bottom: 2rem;
+}
+
+.sidebar-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: #9CA3AF;
+    margin-bottom: 1rem;
+}
+
+/* New Chat button */
+.new-chat-btn {
+    background: white;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    padding: 0.75rem;
+    width: 100%;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #111827;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.new-chat-btn:hover {
+    background: #F3F4F6;
+    border-color: #059669;
+}
+
+/* Chat list - Scrollable */
+.chat-list {
+    max-height: 300px;
+    overflow-y: auto;
+    margin-bottom: 1rem;
+}
+
+.chat-item {
+    padding: 0.75rem;
+    border-radius: 10px;
+    margin-bottom: 0.25rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+}
+
+.chat-item:hover {
+    background: #F3F4F6;
+    border-color: #E5E7EB;
+}
+
+.chat-item.active {
+    background: #E6F7E6;
+    border-color: #059669;
+}
+
+.chat-item-title {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #111827;
+    margin-bottom: 0.25rem;
+}
+
+.chat-item-meta {
+    font-size: 0.7rem;
+    color: #9CA3AF;
+    display: flex;
+    gap: 8px;
+}
+
+/* Document list */
+.doc-list {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.doc-item {
+    padding: 0.5rem;
+    font-size: 0.85rem;
+    color: #374151;
+    border-bottom: 1px solid #E5E7EB;
+}
+
+/* Logout button */
+.logout-btn {
+    background: white;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    padding: 0.75rem;
+    width: 100%;
+    font-size: 0.9rem;
+    color: #DC2626;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 1rem;
+}
+
+.logout-btn:hover {
+    background: #FEF2F2;
+    border-color: #DC2626;
+}
+
+/* Stats */
+.stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin: 1rem 0;
+}
+
+.stat-card {
+    background: white;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    padding: 0.75rem;
+    text-align: center;
+}
+
+.stat-number {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #059669;
+    line-height: 1;
+}
+
+.stat-label {
+    font-size: 0.7rem;
+    color: #6B7280;
+}
+
+/* ===================================== */
+/* MAIN CONTENT AREA */
+/* ===================================== */
+.main-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+}
+
+.clear-btn {
+    background: white;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.clear-btn:hover {
+    background: #F3F4F6;
+    border-color: #DC2626;
+    color: #DC2626;
 }
 
 /* Upload area */
 .upload-area {
     background: #F9FAFB;
     border: 2px dashed #E5E7EB;
-    border-radius: 20px;
-    padding: 3rem;
+    border-radius: 16px;
+    padding: 2.5rem;
     text-align: center;
-    margin: 2rem 0;
+    margin: 1.5rem 0;
     transition: all 0.2s;
 }
 
 .upload-area:hover {
-    border-color: #22C55E;
+    border-color: #059669;
     background: #F3F4F6;
 }
 
 /* Chat messages */
+.stChatMessage {
+    margin-bottom: 1rem !important;
+}
+
+.stChatMessage > div {
+    border-radius: 16px !important;
+    padding: 1rem 1.25rem !important;
+    max-width: 80%;
+}
+
 .stChatMessage.user > div {
-    background: #22C55E !important;
+    background: #059669 !important;
     color: white !important;
+    margin-left: auto !important;
 }
 
 .stChatMessage.assistant > div {
     background: #F3F4F6 !important;
     color: #111827 !important;
+    border: 1px solid #E5E7EB !important;
+}
+
+/* Chat input */
+.stChatInputContainer {
+    border: 2px solid #E5E7EB !important;
+    border-radius: 100px !important;
+    padding: 0.25rem 0.25rem 0.25rem 1.25rem !important;
+}
+
+.stChatInputContainer button {
+    background: #059669 !important;
+    border-radius: 100px !important;
+    padding: 0.5rem 1.5rem !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
 # =============================
-# AUTHENTICATION UI - FULLY WORKING
+# AUTHENTICATION PAGE - FIXED
 # =============================
 def show_auth_page():
-    """Show login/signup page"""
+    # Remove any existing white boxes by using columns
+    col1, col2 = st.columns([1, 1])
     
-    st.markdown('<div class="auth-container">', unsafe_allow_html=True)
-    
-    # Logo
-    st.markdown("""
-    <div class="auth-logo">
-        <div class="auth-logo-icon">🥝</div>
-        <div class="auth-title">Kivi</div>
-        <div class="auth-subtitle">Your intelligent document assistant</div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Toggle between login and signup
-    col1, col2 = st.columns(2)
     with col1:
-        if st.button("🔐 Login", use_container_width=True, 
-                    type="primary" if st.session_state.auth_page == "login" else "secondary"):
-            st.session_state.auth_page = "login"
-            st.rerun()
-    with col2:
-        if st.button("📝 Sign Up", use_container_width=True,
-                    type="primary" if st.session_state.auth_page == "signup" else "secondary"):
-            st.session_state.auth_page = "signup"
-            st.rerun()
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    if st.session_state.auth_page == "login":
-        # LOGIN FORM
-        with st.form("login_form"):
-            email = st.text_input("Email", placeholder="hello@example.com", key="login_email")
-            password = st.text_input("Password", type="password", placeholder="••••••••", key="login_password")
-            
-            submitted = st.form_submit_button("Sign In", use_container_width=True)
-            
-            if submitted:
-                if not email or not password:
-                    st.error("Please fill in all fields")
-                else:
-                    success, message = auth.login_user(email, password)
-                    if success:
-                        st.success(message)
-                        time.sleep(1)
-                        st.rerun()
-                    else:
-                        st.error(message)
-        
-        # Demo credentials
         st.markdown("""
-        <div class="auth-demo">
-            <p>🔑 Demo Account</p>
-            <p><span class="auth-demo-code">Email: demo@kivi.ai</span></p>
-            <p><span class="auth-demo-code">Password: demo123</span></p>
-        </div>
+        <div class="auth-card">
+            <div class="auth-header">
+                <h1>Welcome to Kivi</h1>
+                <p>Your intelligent document assistant</p>
+            </div>
         """, unsafe_allow_html=True)
         
-    else:
-        # SIGNUP FORM
-        with st.form("signup_form"):
-            name = st.text_input("Full Name", placeholder="John Doe", key="signup_name")
-            email = st.text_input("Email", placeholder="hello@example.com", key="signup_email")
-            password = st.text_input("Password", type="password", placeholder="••••••••", key="signup_password")
-            confirm = st.text_input("Confirm Password", type="password", placeholder="••••••••", key="signup_confirm")
+        # Tabs
+        tab1, tab2 = st.columns(2)
+        with tab1:
+            if st.button("🔐 Sign In", use_container_width=True, 
+                        type="primary" if st.session_state.auth_page == "login" else "secondary"):
+                st.session_state.auth_page = "login"
+                st.rerun()
+        with tab2:
+            if st.button("📝 Create Account", use_container_width=True,
+                        type="primary" if st.session_state.auth_page == "signup" else "secondary"):
+                st.session_state.auth_page = "signup"
+                st.rerun()
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        if st.session_state.auth_page == "login":
+            with st.form("login_form"):
+                st.markdown('<div class="auth-input-group"><label>Email</label>', unsafe_allow_html=True)
+                email = st.text_input("", placeholder="hello@example.com", key="login_email", label_visibility="collapsed")
+                st.markdown('</div>', unsafe_allow_html=True)
+                
+                st.markdown('<div class="auth-input-group"><label>Password</label>', unsafe_allow_html=True)
+                password = st.text_input("", type="password", placeholder="••••••••", key="login_password", label_visibility="collapsed")
+                st.markdown('</div>', unsafe_allow_html=True)
+                
+                submitted = st.form_submit_button("Sign In", use_container_width=True)
+                
+                if submitted:
+                    if email and password:
+                        success, message = auth.login_user(email, password)
+                        if success:
+                            st.success(message)
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            st.error(message)
             
-            submitted = st.form_submit_button("Create Account", use_container_width=True)
+            st.markdown('<div class="auth-divider">or</div>', unsafe_allow_html=True)
             
-            if submitted:
-                if not name or not email or not password or not confirm:
-                    st.error("Please fill in all fields")
-                elif password != confirm:
-                    st.error("Passwords do not match")
-                elif len(password) < 6:
-                    st.error("Password must be at least 6 characters")
-                else:
-                    success, message = auth.register_user(email, password, name)
-                    if success:
-                        st.success(message)
-                        time.sleep(1)
-                        st.rerun()
-                    else:
-                        st.error(message)
+            # Demo account
+            st.markdown("""
+            <div class="auth-demo-card">
+                <div class="auth-demo-title">🔑 Demo Account</div>
+                <div class="auth-demo-item">demo@kivi.ai</div>
+                <div class="auth-demo-item">demo123</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        else:
+            with st.form("signup_form"):
+                st.markdown('<div class="auth-input-group"><label>Full Name</label>', unsafe_allow_html=True)
+                name = st.text_input("", placeholder="John Doe", key="signup_name", label_visibility="collapsed")
+                st.markdown('</div>', unsafe_allow_html=True)
+                
+                st.markdown('<div class="auth-input-group"><label>Email</label>', unsafe_allow_html=True)
+                email = st.text_input("", placeholder="hello@example.com", key="signup_email", label_visibility="collapsed")
+                st.markdown('</div>', unsafe_allow_html=True)
+                
+                st.markdown('<div class="auth-input-group"><label>Password</label>', unsafe_allow_html=True)
+                password = st.text_input("", type="password", placeholder="••••••••", key="signup_password", label_visibility="collapsed")
+                st.markdown('</div>', unsafe_allow_html=True)
+                
+                st.markdown('<div class="auth-input-group"><label>Confirm Password</label>', unsafe_allow_html=True)
+                confirm = st.text_input("", type="password", placeholder="••••••••", key="signup_confirm", label_visibility="collapsed")
+                st.markdown('</div>', unsafe_allow_html=True)
+                
+                submitted = st.form_submit_button("Create Account", use_container_width=True)
+                
+                if submitted:
+                    if name and email and password and confirm:
+                        if password != confirm:
+                            st.error("Passwords don't match")
+                        elif len(password) < 6:
+                            st.error("Password must be at least 6 characters")
+                        else:
+                            success, message = auth.register_user(email, password, name)
+                            if success:
+                                st.success(message)
+                                time.sleep(1)
+                                st.rerun()
+                            else:
+                                st.error(message)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
     
-    st.markdown('</div>', unsafe_allow_html=True)
+    with col2:
+        st.markdown("""
+        <div class="auth-quote">
+            <h2>Chat with your documents</h2>
+            <p>Upload PDFs, DOCX, or TXT files and ask questions. Kivi finds answers instantly.</p>
+            <div style="margin-top: 2rem; opacity: 0.8;">🥝</div>
+        </div>
+        """, unsafe_allow_html=True)
 
 # =============================
-# SIDEBAR - WITH REAL USER DATA
+# SIDEBAR - PERMANENT LIKE CHATGPT
 # =============================
 def show_sidebar():
     with st.sidebar:
-        if st.session_state.current_user:
-            # User profile
-            user = st.session_state.current_user
-            initials = user['name'][0].upper() if user['name'] else 'U'
-            st.markdown(f"""
-            <div class="user-profile">
-                <div class="user-avatar">{initials}</div>
-                <div>
-                    <div class="user-info-name">{user['name']}</div>
-                    <div class="user-info-email">{user['email']}</div>
-                </div>
+        # User Profile - Always visible
+        user = st.session_state.current_user
+        initials = user['name'][0].upper() if user['name'] else 'U'
+        st.markdown(f"""
+        <div class="user-profile">
+            <div class="user-avatar">{initials}</div>
+            <div class="user-info">
+                <div class="user-name">{user['name']}</div>
+                <div class="user-email">{user['email']}</div>
             </div>
-            """, unsafe_allow_html=True)
-            
-            # Quick actions
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("➕ New Chat", use_container_width=True):
-                    st.session_state.messages = []
-                    st.session_state.embeddings = None
-                    st.session_state.chunks = []
-                    st.session_state.meta = []
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # New Chat Button
+        if st.button("➕ New Chat", use_container_width=True):
+            st.session_state.messages = []
+            st.session_state.embeddings = None
+            st.session_state.chunks = []
+            st.session_state.meta = []
+            st.session_state.current_chat_name = "New Chat"
+            st.rerun()
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Saved Chats Section - Always visible
+        st.markdown('<div class="sidebar-title">💬 RECENT CHATS</div>', unsafe_allow_html=True)
+        
+        saved_chats = auth.get_user_chats()
+        if saved_chats:
+            st.markdown('<div class="chat-list">', unsafe_allow_html=True)
+            for chat in saved_chats[:10]:
+                # Check if this chat is active
+                is_active = False
+                if st.session_state.messages and chat['messages'] == st.session_state.messages:
+                    is_active = True
+                
+                chat_date = datetime.fromisoformat(chat['date']).strftime('%b %d')
+                msg_count = len(chat['messages'])
+                
+                # Create a button for each chat
+                if st.button(f"📄 {chat['name']}", key=f"chat_{chat['name']}_{chat['date']}", use_container_width=True):
+                    st.session_state.messages = chat['messages']
+                    st.session_state.current_chat_name = chat['name']
                     st.rerun()
-            with col2:
-                if st.button("🚪 Logout", use_container_width=True):
-                    auth.logout()
-                    st.rerun()
-            
-            st.divider()
-            
-            # Saved Chats
-            st.markdown("### 💬 Saved Chats")
-            saved_chats = auth.get_user_chats()
-            if saved_chats:
-                for chat in saved_chats[:5]:
-                    if st.button(f"📄 {chat['name']}", key=f"chat_{chat['name']}_{chat['date']}", use_container_width=True):
-                        st.session_state.messages = chat['messages']
-                        st.session_state.current_chat_name = chat['name']
-                        st.rerun()
-            else:
-                st.caption("No saved chats yet")
-            
-            st.divider()
-            
-            # Documents
-            st.markdown("### 📄 Documents")
-            saved_docs = auth.get_user_documents()
-            if saved_docs:
-                for doc in saved_docs[:5]:
-                    st.caption(f"• {doc['name']} ({doc['chunks']} chunks)")
-            else:
-                st.caption("No documents yet")
-            
-            st.divider()
-            
-            # Settings
-            with st.expander("⚙️ Settings"):
-                TOP_K = st.slider("Chunks to retrieve", 3, 10, 5)
-                show_sources = st.checkbox("Show sources", value=True)
-            
-            # Stats
-            st.markdown("### 📊 Stats")
-            col1, col2 = st.columns(2)
-            with col1:
-                st.metric("Documents", len(set([m['file'] for m in st.session_state.meta])) if st.session_state.meta else 0)
-            with col2:
-                st.metric("Chunks", len(st.session_state.chunks))
-            
-            return TOP_K, show_sources
-    
-    return 5, True
+            st.markdown('</div>', unsafe_allow_html=True)
+        else:
+            st.caption("No saved chats yet")
+        
+        st.divider()
+        
+        # Documents Section
+        st.markdown('<div class="sidebar-title">📄 DOCUMENTS</div>', unsafe_allow_html=True)
+        saved_docs = auth.get_user_documents()
+        if saved_docs:
+            st.markdown('<div class="doc-list">', unsafe_allow_html=True)
+            for doc in saved_docs[:5]:
+                st.markdown(f"""
+                <div class="doc-item">
+                    📄 {doc['name']} <span style="color: #9CA3AF; font-size: 0.7rem;">({doc['chunks']} chunks)</span>
+                </div>
+                """, unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+        else:
+            st.caption("No documents yet")
+        
+        st.divider()
+        
+        # Stats
+        st.markdown('<div class="sidebar-title">📊 STATS</div>', unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number">{len(set([m['file'] for m in st.session_state.meta])) if st.session_state.meta else 0}</div>
+                <div class="stat-label">Documents</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{len(st.session_state.chunks)}</div>
+                <div class="stat-label">Chunks</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Settings
+        with st.expander("⚙️ Settings"):
+            TOP_K = st.slider("Chunks to retrieve", 3, 10, 5)
+            show_sources = st.checkbox("Show sources", value=True)
+        
+        # Logout button
+        if st.button("🚪 Sign Out", use_container_width=True):
+            auth.logout()
+            st.rerun()
+        
+        return TOP_K, show_sources
 
 # =============================
 # KIWI LOGO
@@ -748,10 +1005,7 @@ def show_logo():
             <div class="kivi-shape-inner"></div>
             <div class="kivi-dot"></div>
         </div>
-        <div class="kivi-logo-text">
-            <span class="kivi-logo-main">Kivi</span>
-            <span class="kivi-logo-tagline">intelligent document assistant</span>
-        </div>
+        <div class="kivi-logo-text">Kivi</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -844,29 +1098,29 @@ def stream_response(text, placeholder):
 # MAIN APP
 # =============================
 
-# Check if user is logged in
+# Show auth page if not logged in
 if not st.session_state.current_user:
     show_auth_page()
     st.stop()
 
-# Show sidebar for logged in users
+# Show sidebar and main content for logged in users
 TOP_K, show_sources = show_sidebar()
 
-# Main content area
+# Main header
 col1, col2 = st.columns([0.8, 0.2])
 with col1:
     show_logo()
 with col2:
-    if st.button("🗑 Clear Chat", use_container_width=True):
+    if st.button("🗑 Clear", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
 
 # Upload area
 st.markdown("""
 <div class="upload-area">
-    <div class="upload-icon">📄</div>
-    <div class="upload-title">Drop your documents here</div>
-    <div class="upload-subtitle">PDF • DOCX • TXT</div>
+    <div style="font-size: 2rem; margin-bottom: 1rem;">📄</div>
+    <div style="font-size: 1.1rem; font-weight: 500; color: #111827; margin-bottom: 0.5rem;">Drop your documents here</div>
+    <div style="color: #6B7280; font-size: 0.9rem;">PDF • DOCX • TXT</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -892,12 +1146,11 @@ if uploaded_files:
         if embeddings is not None:
             st.success(f"✅ Ready! {len(chunks)} chunks from {len(uploaded_files)} files")
             
-            # Save to user's documents
             for f in uploaded_files:
                 chunk_count = len([m for m in meta if m['file'] == f.name])
                 auth.save_user_document(f.name, chunk_count)
         else:
-            st.warning("No readable text found in documents")
+            st.warning("No readable text found")
 
 # Display chat history
 for msg in st.session_state.messages:
@@ -925,14 +1178,14 @@ if question:
     # Calculate confidence
     if retrieved:
         avg_conf = sum([s for _,_,s in retrieved]) / len(retrieved)
-        confidence_level = "High" if avg_conf > 0.5 else "Medium" if avg_conf > 0.3 else "Low"
+        confidence = "High" if avg_conf > 0.5 else "Medium" if avg_conf > 0.3 else "Low"
     else:
         avg_conf = 0
-        confidence_level = "None"
+        confidence = "None"
     
     # Prepare context
     if not retrieved:
-        context = "No relevant information found in the documents."
+        context = "No relevant information found."
     else:
         context = "\n\n".join([f"[From {fname}]\n{chunk}" for chunk, fname, _ in retrieved])
     
@@ -947,31 +1200,21 @@ if question:
         # Show metadata
         col1, col2, col3 = st.columns([0.3, 0.4, 0.3])
         with col1:
-            st.caption(f"🎯 Confidence: {confidence_level}")
+            st.caption(f"🎯 {confidence}")
         with col2:
-            st.caption(f"📚 Sources: {len(retrieved)} chunks")
+            st.caption(f"📚 {len(retrieved)} sources")
         
         # Show sources
         if show_sources and retrieved:
-            with st.expander(f"📄 View {len(retrieved)} sources"):
+            with st.expander(f"📄 View sources"):
                 for i, (chunk, fname, score) in enumerate(retrieved, 1):
-                    st.markdown(f"**{i}. {fname}** (relevance: {score:.2f})")
+                    st.markdown(f"**{i}. {fname}** (score: {score:.2f})")
                     st.info(chunk[:300] + "..." if len(chunk) > 300 else chunk)
     
     st.session_state.messages.append({"role": "assistant", "content": answer})
     
     # Auto-save chat
-    if len(st.session_state.messages) == 2:  # First Q&A
+    if len(st.session_state.messages) == 2:
         auth.save_user_chat(st.session_state.current_chat_name, st.session_state.messages)
     
     st.rerun()
-
-# Welcome message
-if len(st.session_state.messages) == 0 and st.session_state.embeddings is not None:
-    st.markdown("""
-    <div style="text-align: center; padding: 3rem; color: #6B7280;">
-        <div style="font-size: 3rem; margin-bottom: 1rem;">🥝</div>
-        <h3 style="color: #111827; margin-bottom: 0.5rem;">Ready to help!</h3>
-        <p>Ask me anything about your documents.</p>
-    </div>
-    """, unsafe_allow_html=True)
