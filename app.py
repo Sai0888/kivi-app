@@ -7,8 +7,6 @@ import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 from datetime import datetime
 import json
-import sqlite3
-from pathlib import Path
 
 try:
     from groq import Groq
@@ -32,211 +30,11 @@ st.set_page_config(
 try:
     GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
 except:
-    st.error("Please configure API key in Settings")
+    st.error("Please configure API key in Secrets")
     st.stop()
 
 client = Groq(api_key=GROQ_API_KEY)
 MODEL_NAME = "llama-3.1-8b-instant"
-
-# =============================
-# DATABASE SETUP
-# =============================
-def init_database():
-    conn = sqlite3.connect('kivi_users.db')
-    c = conn.cursor()
-    
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            email TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
-            name TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS user_data (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_email TEXT NOT NULL,
-            data_type TEXT NOT NULL,
-            data_content TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_email) REFERENCES users (email)
-        )
-    ''')
-    
-    conn.commit()
-    conn.close()
-
-init_database()
-
-# =============================
-# USER AUTHENTICATION CLASS
-# =============================
-class UserAuth:
-    def __init__(self):
-        if 'current_user' not in st.session_state:
-            st.session_state.current_user = None
-        if 'auth_page' not in st.session_state:
-            st.session_state.auth_page = "login"
-        if 'sidebar_collapsed' not in st.session_state:
-            st.session_state.sidebar_collapsed = False
-    
-    def hash_password(self, password):
-        return hashlib.sha256(password.encode()).hexdigest()
-    
-    def register_user(self, email, password, name):
-        try:
-            conn = sqlite3.connect('kivi_users.db')
-            c = conn.cursor()
-            
-            c.execute("SELECT email FROM users WHERE email = ?", (email,))
-            if c.fetchone():
-                conn.close()
-                return False, "Email already registered"
-            
-            password_hash = self.hash_password(password)
-            c.execute(
-                "INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?)",
-                (email, password_hash, name)
-            )
-            conn.commit()
-            conn.close()
-            
-            st.session_state.current_user = {
-                "email": email,
-                "name": name
-            }
-            
-            return True, "Welcome to Kivi!"
-            
-        except Exception as e:
-            return False, f"Registration failed: {str(e)}"
-    
-    def login_user(self, email, password):
-        try:
-            conn = sqlite3.connect('kivi_users.db')
-            c = conn.cursor()
-            
-            password_hash = self.hash_password(password)
-            c.execute(
-                "SELECT name FROM users WHERE email = ? AND password_hash = ?",
-                (email, password_hash)
-            )
-            result = c.fetchone()
-            conn.close()
-            
-            if result:
-                st.session_state.current_user = {
-                    "email": email,
-                    "name": result[0]
-                }
-                return True, "Welcome back!"
-            else:
-                return False, "Invalid email or password"
-                
-        except Exception as e:
-            return False, f"Login failed: {str(e)}"
-    
-    def logout(self):
-        st.session_state.current_user = None
-        st.session_state.messages = []
-        st.session_state.embeddings = None
-        st.session_state.chunks = []
-        st.session_state.meta = []
-        return True, "Logged out successfully"
-    
-    def save_user_chat(self, chat_name, messages):
-        if not st.session_state.current_user:
-            return False, "Not logged in"
-        
-        try:
-            conn = sqlite3.connect('kivi_users.db')
-            c = conn.cursor()
-            
-            data = {
-                "name": chat_name,
-                "messages": messages,
-                "date": datetime.now().isoformat()
-            }
-            
-            c.execute(
-                "INSERT INTO user_data (user_email, data_type, data_content) VALUES (?, ?, ?)",
-                (st.session_state.current_user["email"], "chat", json.dumps(data))
-            )
-            conn.commit()
-            conn.close()
-            return True, "Chat saved!"
-        except Exception as e:
-            return False, f"Failed to save: {str(e)}"
-    
-    def get_user_chats(self):
-        if not st.session_state.current_user:
-            return []
-        
-        try:
-            conn = sqlite3.connect('kivi_users.db')
-            c = conn.cursor()
-            c.execute(
-                "SELECT data_content FROM user_data WHERE user_email = ? AND data_type = 'chat' ORDER BY created_at DESC",
-                (st.session_state.current_user["email"],)
-            )
-            results = c.fetchall()
-            conn.close()
-            
-            chats = []
-            for row in results:
-                chats.append(json.loads(row[0]))
-            return chats
-        except:
-            return []
-    
-    def save_user_document(self, doc_name, chunks_count):
-        if not st.session_state.current_user:
-            return
-        
-        try:
-            conn = sqlite3.connect('kivi_users.db')
-            c = conn.cursor()
-            
-            data = {
-                "name": doc_name,
-                "chunks": chunks_count,
-                "date": datetime.now().isoformat()
-            }
-            
-            c.execute(
-                "INSERT INTO user_data (user_email, data_type, data_content) VALUES (?, ?, ?)",
-                (st.session_state.current_user["email"], "document", json.dumps(data))
-            )
-            conn.commit()
-            conn.close()
-        except:
-            pass
-    
-    def get_user_documents(self):
-        if not st.session_state.current_user:
-            return []
-        
-        try:
-            conn = sqlite3.connect('kivi_users.db')
-            c = conn.cursor()
-            c.execute(
-                "SELECT data_content FROM user_data WHERE user_email = ? AND data_type = 'document' ORDER BY created_at DESC",
-                (st.session_state.current_user["email"],)
-            )
-            results = c.fetchall()
-            conn.close()
-            
-            docs = []
-            for row in results:
-                docs.append(json.loads(row[0]))
-            return docs
-        except:
-            return []
-
-auth = UserAuth()
 
 # =============================
 # SESSION STATE
@@ -253,6 +51,8 @@ if "files_hash" not in st.session_state:
     st.session_state.files_hash = None
 if "current_chat_name" not in st.session_state:
     st.session_state.current_chat_name = "New Chat"
+if "saved_chats" not in st.session_state:
+    st.session_state.saved_chats = []  # Store chats in session
 
 # =============================
 # CLEAN PROFESSIONAL CSS
@@ -286,13 +86,12 @@ html, body, [class*="css"] {
 }
 
 /* ===================================== */
-/* KIWI LOGO - CLEAN */
+/* KIWI LOGO */
 /* ===================================== */
 .kivi-logo-container {
     display: flex;
     align-items: center;
     gap: 12px;
-    margin: 0 0 2rem 0;
 }
 
 .kivi-logo-mark {
@@ -340,182 +139,7 @@ html, body, [class*="css"] {
 }
 
 /* ===================================== */
-/* AUTHENTICATION PAGE - CLEAN */
-/* ===================================== */
-.auth-wrapper {
-    display: flex;
-    min-height: 100vh;
-    background: linear-gradient(135deg, #F9FAFB 0%, #F3F4F6 100%);
-}
-
-.auth-left {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem;
-}
-
-.auth-card {
-    width: 100%;
-    max-width: 440px;
-    padding: 2.5rem;
-}
-
-.auth-header {
-    margin-bottom: 2rem;
-}
-
-.auth-header h1 {
-    font-size: 2.5rem;
-    font-weight: 600;
-    color: #111827;
-    margin-bottom: 0.5rem;
-}
-
-.auth-header p {
-    color: #6B7280;
-    font-size: 1rem;
-}
-
-.auth-tabs {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 2rem;
-    border-bottom: 2px solid #E5E7EB;
-    padding-bottom: 0.5rem;
-}
-
-.auth-tab {
-    background: none;
-    border: none;
-    padding: 0.5rem 1rem;
-    font-size: 1rem;
-    font-weight: 500;
-    color: #6B7280;
-    cursor: pointer;
-    transition: all 0.2s;
-    border-radius: 8px;
-}
-
-.auth-tab:hover {
-    color: #059669;
-    background: #F3F4F6;
-}
-
-.auth-tab.active {
-    color: #059669;
-    border-bottom: 2px solid #059669;
-}
-
-.auth-input-group {
-    margin-bottom: 1.5rem;
-}
-
-.auth-input-group label {
-    display: block;
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: #374151;
-    margin-bottom: 0.5rem;
-}
-
-.auth-input {
-    width: 100%;
-    padding: 0.875rem 1rem;
-    border: 2px solid #E5E7EB;
-    border-radius: 12px;
-    font-size: 0.95rem;
-    transition: all 0.2s;
-    background: white;
-}
-
-.auth-input:focus {
-    outline: none;
-    border-color: #059669;
-    box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
-}
-
-.auth-button {
-    width: 100%;
-    padding: 0.875rem;
-    background: #059669;
-    color: white;
-    border: none;
-    border-radius: 12px;
-    font-weight: 600;
-    font-size: 1rem;
-    cursor: pointer;
-    transition: all 0.2s;
-    margin: 1rem 0;
-}
-
-.auth-button:hover {
-    background: #047857;
-    transform: translateY(-1px);
-}
-
-.auth-divider {
-    text-align: center;
-    margin: 1.5rem 0;
-    color: #9CA3AF;
-    font-size: 0.9rem;
-}
-
-.auth-demo-card {
-    background: #F9FAFB;
-    border: 2px solid #E5E7EB;
-    border-radius: 12px;
-    padding: 1rem;
-    margin-top: 1rem;
-}
-
-.auth-demo-title {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: #374151;
-    margin-bottom: 0.5rem;
-}
-
-.auth-demo-item {
-    background: white;
-    padding: 0.5rem 0.75rem;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    color: #059669;
-    font-family: monospace;
-    border: 1px solid #E5E7EB;
-    margin: 0.25rem 0;
-}
-
-.auth-right {
-    flex: 1;
-    background: linear-gradient(135deg, #059669, #10B981);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem;
-    color: white;
-}
-
-.auth-quote {
-    max-width: 400px;
-}
-
-.auth-quote h2 {
-    font-size: 2rem;
-    font-weight: 600;
-    margin-bottom: 1rem;
-}
-
-.auth-quote p {
-    font-size: 1.1rem;
-    opacity: 0.9;
-    line-height: 1.6;
-}
-
-/* ===================================== */
-/* SIDEBAR - PERMANENT LIKE CHATGPT */
+/* SIDEBAR - PERMANENT */
 /* ===================================== */
 section[data-testid="stSidebar"] {
     background: #F9FAFB !important;
@@ -528,48 +152,11 @@ section[data-testid="stSidebar"] .block-container {
     max-width: 100% !important;
 }
 
-/* User profile - Fixed at top */
-.user-profile {
+/* Sidebar header */
+.sidebar-header {
     padding: 0 0 1.5rem 0;
     margin-bottom: 1.5rem;
     border-bottom: 1px solid #E5E7EB;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.user-avatar {
-    width: 44px;
-    height: 44px;
-    background: #059669;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-weight: 600;
-    font-size: 1.2rem;
-}
-
-.user-info {
-    flex: 1;
-}
-
-.user-name {
-    font-weight: 600;
-    color: #111827;
-    font-size: 0.95rem;
-    margin-bottom: 0.25rem;
-}
-
-.user-email {
-    font-size: 0.8rem;
-    color: #6B7280;
-}
-
-/* Sidebar sections */
-.sidebar-section {
-    margin-bottom: 2rem;
 }
 
 .sidebar-title {
@@ -583,20 +170,20 @@ section[data-testid="stSidebar"] .block-container {
 
 /* New Chat button */
 .new-chat-btn {
+    width: 100%;
+    padding: 0.75rem;
     background: white;
     border: 1px solid #E5E7EB;
     border-radius: 10px;
-    padding: 0.75rem;
-    width: 100%;
     font-size: 0.9rem;
     font-weight: 500;
     color: #111827;
     cursor: pointer;
     transition: all 0.2s;
-    margin-bottom: 1.5rem;
     display: flex;
     align-items: center;
     gap: 8px;
+    margin-bottom: 1.5rem;
 }
 
 .new-chat-btn:hover {
@@ -604,7 +191,7 @@ section[data-testid="stSidebar"] .block-container {
     border-color: #059669;
 }
 
-/* Chat list - Scrollable */
+/* Chat list */
 .chat-list {
     max-height: 300px;
     overflow-y: auto;
@@ -644,39 +231,7 @@ section[data-testid="stSidebar"] .block-container {
     gap: 8px;
 }
 
-/* Document list */
-.doc-list {
-    max-height: 200px;
-    overflow-y: auto;
-}
-
-.doc-item {
-    padding: 0.5rem;
-    font-size: 0.85rem;
-    color: #374151;
-    border-bottom: 1px solid #E5E7EB;
-}
-
-/* Logout button */
-.logout-btn {
-    background: white;
-    border: 1px solid #E5E7EB;
-    border-radius: 10px;
-    padding: 0.75rem;
-    width: 100%;
-    font-size: 0.9rem;
-    color: #DC2626;
-    cursor: pointer;
-    transition: all 0.2s;
-    margin-top: 1rem;
-}
-
-.logout-btn:hover {
-    background: #FEF2F2;
-    border-color: #DC2626;
-}
-
-/* Stats */
+/* Stats grid */
 .stats-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -705,7 +260,7 @@ section[data-testid="stSidebar"] .block-container {
 }
 
 /* ===================================== */
-/* MAIN CONTENT AREA */
+/* MAIN CONTENT */
 /* ===================================== */
 .main-header {
     display: flex;
@@ -782,133 +337,27 @@ section[data-testid="stSidebar"] .block-container {
     border-radius: 100px !important;
     padding: 0.5rem 1.5rem !important;
 }
+
+/* Expander */
+.streamlit-expanderHeader {
+    background: #F9FAFB !important;
+    border: 1px solid #E5E7EB !important;
+    border-radius: 10px !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
 # =============================
-# AUTHENTICATION PAGE - FIXED
-# =============================
-def show_auth_page():
-    # Remove any existing white boxes by using columns
-    col1, col2 = st.columns([1, 1])
-    
-    with col1:
-        st.markdown("""
-        <div class="auth-card">
-            <div class="auth-header">
-                <h1>Welcome to Kivi</h1>
-                <p>Your intelligent document assistant</p>
-            </div>
-        """, unsafe_allow_html=True)
-        
-        # Tabs
-        tab1, tab2 = st.columns(2)
-        with tab1:
-            if st.button("🔐 Sign In", use_container_width=True, 
-                        type="primary" if st.session_state.auth_page == "login" else "secondary"):
-                st.session_state.auth_page = "login"
-                st.rerun()
-        with tab2:
-            if st.button("📝 Create Account", use_container_width=True,
-                        type="primary" if st.session_state.auth_page == "signup" else "secondary"):
-                st.session_state.auth_page = "signup"
-                st.rerun()
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        if st.session_state.auth_page == "login":
-            with st.form("login_form"):
-                st.markdown('<div class="auth-input-group"><label>Email</label>', unsafe_allow_html=True)
-                email = st.text_input("", placeholder="hello@example.com", key="login_email", label_visibility="collapsed")
-                st.markdown('</div>', unsafe_allow_html=True)
-                
-                st.markdown('<div class="auth-input-group"><label>Password</label>', unsafe_allow_html=True)
-                password = st.text_input("", type="password", placeholder="••••••••", key="login_password", label_visibility="collapsed")
-                st.markdown('</div>', unsafe_allow_html=True)
-                
-                submitted = st.form_submit_button("Sign In", use_container_width=True)
-                
-                if submitted:
-                    if email and password:
-                        success, message = auth.login_user(email, password)
-                        if success:
-                            st.success(message)
-                            time.sleep(1)
-                            st.rerun()
-                        else:
-                            st.error(message)
-            
-            st.markdown('<div class="auth-divider">or</div>', unsafe_allow_html=True)
-            
-            # Demo account
-            st.markdown("""
-            <div class="auth-demo-card">
-                <div class="auth-demo-title">🔑 Demo Account</div>
-                <div class="auth-demo-item">demo@kivi.ai</div>
-                <div class="auth-demo-item">demo123</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        else:
-            with st.form("signup_form"):
-                st.markdown('<div class="auth-input-group"><label>Full Name</label>', unsafe_allow_html=True)
-                name = st.text_input("", placeholder="John Doe", key="signup_name", label_visibility="collapsed")
-                st.markdown('</div>', unsafe_allow_html=True)
-                
-                st.markdown('<div class="auth-input-group"><label>Email</label>', unsafe_allow_html=True)
-                email = st.text_input("", placeholder="hello@example.com", key="signup_email", label_visibility="collapsed")
-                st.markdown('</div>', unsafe_allow_html=True)
-                
-                st.markdown('<div class="auth-input-group"><label>Password</label>', unsafe_allow_html=True)
-                password = st.text_input("", type="password", placeholder="••••••••", key="signup_password", label_visibility="collapsed")
-                st.markdown('</div>', unsafe_allow_html=True)
-                
-                st.markdown('<div class="auth-input-group"><label>Confirm Password</label>', unsafe_allow_html=True)
-                confirm = st.text_input("", type="password", placeholder="••••••••", key="signup_confirm", label_visibility="collapsed")
-                st.markdown('</div>', unsafe_allow_html=True)
-                
-                submitted = st.form_submit_button("Create Account", use_container_width=True)
-                
-                if submitted:
-                    if name and email and password and confirm:
-                        if password != confirm:
-                            st.error("Passwords don't match")
-                        elif len(password) < 6:
-                            st.error("Password must be at least 6 characters")
-                        else:
-                            success, message = auth.register_user(email, password, name)
-                            if success:
-                                st.success(message)
-                                time.sleep(1)
-                                st.rerun()
-                            else:
-                                st.error(message)
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown("""
-        <div class="auth-quote">
-            <h2>Chat with your documents</h2>
-            <p>Upload PDFs, DOCX, or TXT files and ask questions. Kivi finds answers instantly.</p>
-            <div style="margin-top: 2rem; opacity: 0.8;">🥝</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-# =============================
-# SIDEBAR - PERMANENT LIKE CHATGPT
+# SIDEBAR - PERMANENT
 # =============================
 def show_sidebar():
     with st.sidebar:
-        # User Profile - Always visible
-        user = st.session_state.current_user
-        initials = user['name'][0].upper() if user['name'] else 'U'
-        st.markdown(f"""
-        <div class="user-profile">
-            <div class="user-avatar">{initials}</div>
-            <div class="user-info">
-                <div class="user-name">{user['name']}</div>
-                <div class="user-email">{user['email']}</div>
+        # Simple header with Kivi
+        st.markdown("""
+        <div class="sidebar-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="width: 32px; height: 32px; background: #059669; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600;">K</div>
+                <span style="font-size: 1.2rem; font-weight: 600; color: #111827;">Kivi</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -919,28 +368,22 @@ def show_sidebar():
             st.session_state.embeddings = None
             st.session_state.chunks = []
             st.session_state.meta = []
-            st.session_state.current_chat_name = "New Chat"
+            st.session_state.current_chat_name = f"Chat {len(st.session_state.saved_chats) + 1}"
             st.rerun()
         
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # Saved Chats Section - Always visible
+        # Saved Chats Section
         st.markdown('<div class="sidebar-title">💬 RECENT CHATS</div>', unsafe_allow_html=True)
         
-        saved_chats = auth.get_user_chats()
-        if saved_chats:
+        if st.session_state.saved_chats:
             st.markdown('<div class="chat-list">', unsafe_allow_html=True)
-            for chat in saved_chats[:10]:
+            for i, chat in enumerate(st.session_state.saved_chats[-10:]):
                 # Check if this chat is active
-                is_active = False
-                if st.session_state.messages and chat['messages'] == st.session_state.messages:
-                    is_active = True
-                
-                chat_date = datetime.fromisoformat(chat['date']).strftime('%b %d')
-                msg_count = len(chat['messages'])
+                is_active = chat['messages'] == st.session_state.messages
                 
                 # Create a button for each chat
-                if st.button(f"📄 {chat['name']}", key=f"chat_{chat['name']}_{chat['date']}", use_container_width=True):
+                if st.button(f"📄 {chat['name']}", key=f"chat_{i}", use_container_width=True):
                     st.session_state.messages = chat['messages']
                     st.session_state.current_chat_name = chat['name']
                     st.rerun()
@@ -950,22 +393,10 @@ def show_sidebar():
         
         st.divider()
         
-        # Documents Section
-        st.markdown('<div class="sidebar-title">📄 DOCUMENTS</div>', unsafe_allow_html=True)
-        saved_docs = auth.get_user_documents()
-        if saved_docs:
-            st.markdown('<div class="doc-list">', unsafe_allow_html=True)
-            for doc in saved_docs[:5]:
-                st.markdown(f"""
-                <div class="doc-item">
-                    📄 {doc['name']} <span style="color: #9CA3AF; font-size: 0.7rem;">({doc['chunks']} chunks)</span>
-                </div>
-                """, unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-        else:
-            st.caption("No documents yet")
-        
-        st.divider()
+        # Settings
+        with st.expander("⚙️ Settings", expanded=False):
+            TOP_K = st.slider("Chunks to retrieve", 3, 10, 5)
+            show_sources = st.checkbox("Show sources", value=True)
         
         # Stats
         st.markdown('<div class="sidebar-title">📊 STATS</div>', unsafe_allow_html=True)
@@ -981,16 +412,6 @@ def show_sidebar():
             </div>
         </div>
         """, unsafe_allow_html=True)
-        
-        # Settings
-        with st.expander("⚙️ Settings"):
-            TOP_K = st.slider("Chunks to retrieve", 3, 10, 5)
-            show_sources = st.checkbox("Show sources", value=True)
-        
-        # Logout button
-        if st.button("🚪 Sign Out", use_container_width=True):
-            auth.logout()
-            st.rerun()
         
         return TOP_K, show_sources
 
@@ -1095,22 +516,40 @@ def stream_response(text, placeholder):
         time.sleep(0.02)
 
 # =============================
-# MAIN APP
+# SAVE CHAT FUNCTION
+# =============================
+def save_current_chat():
+    if st.session_state.messages:
+        chat_name = st.session_state.current_chat_name
+        # Check if chat already exists
+        for chat in st.session_state.saved_chats:
+            if chat['messages'] == st.session_state.messages:
+                return
+        # Save new chat
+        st.session_state.saved_chats.append({
+            "name": chat_name,
+            "messages": st.session_state.messages.copy(),
+            "date": datetime.now().strftime("%Y-%m-%d %H:%M")
+        })
+
+# =============================
+# MAIN APP - DIRECT, NO LOGIN
 # =============================
 
-# Show auth page if not logged in
-if not st.session_state.current_user:
-    show_auth_page()
-    st.stop()
-
-# Show sidebar and main content for logged in users
+# Show sidebar
 TOP_K, show_sources = show_sidebar()
 
 # Main header
-col1, col2 = st.columns([0.8, 0.2])
+col1, col2, col3 = st.columns([0.6, 0.2, 0.2])
 with col1:
     show_logo()
 with col2:
+    if st.button("💾 Save Chat", use_container_width=True):
+        save_current_chat()
+        st.success("Chat saved!")
+        time.sleep(1)
+        st.rerun()
+with col3:
     if st.button("🗑 Clear", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
@@ -1145,10 +584,6 @@ if uploaded_files:
         
         if embeddings is not None:
             st.success(f"✅ Ready! {len(chunks)} chunks from {len(uploaded_files)} files")
-            
-            for f in uploaded_files:
-                chunk_count = len([m for m in meta if m['file'] == f.name])
-                auth.save_user_document(f.name, chunk_count)
         else:
             st.warning("No readable text found")
 
@@ -1185,7 +620,7 @@ if question:
     
     # Prepare context
     if not retrieved:
-        context = "No relevant information found."
+        context = "No relevant information found in the documents."
     else:
         context = "\n\n".join([f"[From {fname}]\n{chunk}" for chunk, fname, _ in retrieved])
     
@@ -1198,23 +633,31 @@ if question:
         stream_response(answer, placeholder)
         
         # Show metadata
-        col1, col2, col3 = st.columns([0.3, 0.4, 0.3])
+        col1, col2 = st.columns([0.3, 0.7])
         with col1:
-            st.caption(f"🎯 {confidence}")
-        with col2:
-            st.caption(f"📚 {len(retrieved)} sources")
+            st.caption(f"🎯 Confidence: {confidence}")
         
         # Show sources
         if show_sources and retrieved:
-            with st.expander(f"📄 View sources"):
+            with st.expander(f"📄 View {len(retrieved)} sources"):
                 for i, (chunk, fname, score) in enumerate(retrieved, 1):
-                    st.markdown(f"**{i}. {fname}** (score: {score:.2f})")
+                    st.markdown(f"**{i}. {fname}** (relevance: {score:.2f})")
                     st.info(chunk[:300] + "..." if len(chunk) > 300 else chunk)
     
     st.session_state.messages.append({"role": "assistant", "content": answer})
     
     # Auto-save chat
-    if len(st.session_state.messages) == 2:
-        auth.save_user_chat(st.session_state.current_chat_name, st.session_state.messages)
+    if len(st.session_state.messages) == 2:  # First Q&A
+        save_current_chat()
     
     st.rerun()
+
+# Welcome message
+if len(st.session_state.messages) == 0 and st.session_state.embeddings is not None:
+    st.markdown("""
+    <div style="text-align: center; padding: 3rem; color: #6B7280;">
+        <div style="font-size: 3rem; margin-bottom: 1rem;">🥝</div>
+        <h3 style="color: #111827; margin-bottom: 0.5rem;">Ready to help!</h3>
+        <p>Ask me anything about your documents.</p>
+    </div>
+    """, unsafe_allow_html=True)
