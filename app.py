@@ -144,7 +144,7 @@ html, body, [class*="css"] {
 section[data-testid="stSidebar"] {
     background: #F9FAFB !important;
     border-right: 1px solid #E5E7EB !important;
-    width: 280px !important;
+    width: 300px !important;
 }
 
 section[data-testid="stSidebar"] .block-container {
@@ -193,12 +193,15 @@ section[data-testid="stSidebar"] .block-container {
 
 /* Chat list */
 .chat-list {
-    max-height: 300px;
+    max-height: 400px;
     overflow-y: auto;
     margin-bottom: 1rem;
 }
 
 .chat-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     padding: 0.75rem;
     border-radius: 10px;
     margin-bottom: 0.25rem;
@@ -217,11 +220,19 @@ section[data-testid="stSidebar"] .block-container {
     border-color: #059669;
 }
 
+.chat-item-content {
+    flex: 1;
+    overflow: hidden;
+}
+
 .chat-item-title {
     font-size: 0.9rem;
     font-weight: 500;
     color: #111827;
     margin-bottom: 0.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .chat-item-meta {
@@ -229,6 +240,27 @@ section[data-testid="stSidebar"] .block-container {
     color: #9CA3AF;
     display: flex;
     gap: 8px;
+}
+
+.chat-delete-btn {
+    opacity: 0;
+    background: none;
+    border: none;
+    color: #9CA3AF;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.chat-item:hover .chat-delete-btn {
+    opacity: 1;
+}
+
+.chat-delete-btn:hover {
+    color: #DC2626;
+    background: #FEE2E2;
 }
 
 /* Stats grid */
@@ -269,7 +301,12 @@ section[data-testid="stSidebar"] .block-container {
     margin-bottom: 2rem;
 }
 
-.clear-btn {
+.header-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.header-btn {
     background: white;
     border: 1px solid #E5E7EB;
     border-radius: 10px;
@@ -280,8 +317,12 @@ section[data-testid="stSidebar"] .block-container {
     transition: all 0.2s;
 }
 
-.clear-btn:hover {
+.header-btn:hover {
     background: #F3F4F6;
+    border-color: #059669;
+}
+
+.header-btn.delete:hover {
     border-color: #DC2626;
     color: #DC2626;
 }
@@ -344,11 +385,18 @@ section[data-testid="stSidebar"] .block-container {
     border: 1px solid #E5E7EB !important;
     border-radius: 10px !important;
 }
+
+/* Success message */
+.stSuccess {
+    background: #E6F7E6 !important;
+    color: #059669 !important;
+    border: 1px solid #059669 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
 # =============================
-# SIDEBAR - PERMANENT
+# SIDEBAR - WITH DELETE FUNCTIONALITY
 # =============================
 def show_sidebar():
     with st.sidebar:
@@ -374,19 +422,41 @@ def show_sidebar():
         st.markdown("<br>", unsafe_allow_html=True)
         
         # Saved Chats Section
-        st.markdown('<div class="sidebar-title">💬 RECENT CHATS</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sidebar-title">💬 SAVED CHATS</div>', unsafe_allow_html=True)
         
         if st.session_state.saved_chats:
             st.markdown('<div class="chat-list">', unsafe_allow_html=True)
-            for i, chat in enumerate(st.session_state.saved_chats[-10:]):
+            
+            # Create a list to track which chats to delete
+            chats_to_delete = []
+            
+            for i, chat in enumerate(st.session_state.saved_chats):
                 # Check if this chat is active
                 is_active = chat['messages'] == st.session_state.messages
+                active_class = "active" if is_active else ""
                 
-                # Create a button for each chat
-                if st.button(f"📄 {chat['name']}", key=f"chat_{i}", use_container_width=True):
-                    st.session_state.messages = chat['messages']
-                    st.session_state.current_chat_name = chat['name']
-                    st.rerun()
+                # Create columns for chat item and delete button
+                cols = st.columns([0.85, 0.15])
+                
+                with cols[0]:
+                    # Chat button
+                    if st.button(f"📄 {chat['name']}", key=f"chat_load_{i}", use_container_width=True):
+                        st.session_state.messages = chat['messages']
+                        st.session_state.current_chat_name = chat['name']
+                        st.rerun()
+                
+                with cols[1]:
+                    # Delete button
+                    if st.button("🗑️", key=f"chat_delete_{i}", use_container_width=True):
+                        chats_to_delete.append(i)
+            
+            # Delete chats after the loop
+            if chats_to_delete:
+                # Remove in reverse order to avoid index issues
+                for i in sorted(chats_to_delete, reverse=True):
+                    st.session_state.saved_chats.pop(i)
+                st.rerun()
+            
             st.markdown('</div>', unsafe_allow_html=True)
         else:
             st.caption("No saved chats yet")
@@ -524,35 +594,62 @@ def save_current_chat():
         # Check if chat already exists
         for chat in st.session_state.saved_chats:
             if chat['messages'] == st.session_state.messages:
-                return
+                return False, "Chat already saved"
         # Save new chat
         st.session_state.saved_chats.append({
             "name": chat_name,
             "messages": st.session_state.messages.copy(),
             "date": datetime.now().strftime("%Y-%m-%d %H:%M")
         })
+        return True, "Chat saved successfully!"
 
 # =============================
-# MAIN APP - DIRECT, NO LOGIN
+# DELETE ALL CHATS FUNCTION
+# =============================
+def delete_all_chats():
+    st.session_state.saved_chats = []
+    return True, "All chats deleted"
+
+# =============================
+# MAIN APP
 # =============================
 
 # Show sidebar
 TOP_K, show_sources = show_sidebar()
 
-# Main header
-col1, col2, col3 = st.columns([0.6, 0.2, 0.2])
+# Main header with logo and buttons
+col1, col2 = st.columns([0.6, 0.4])
 with col1:
     show_logo()
 with col2:
-    if st.button("💾 Save Chat", use_container_width=True):
-        save_current_chat()
-        st.success("Chat saved!")
-        time.sleep(1)
-        st.rerun()
-with col3:
-    if st.button("🗑 Clear", use_container_width=True):
-        st.session_state.messages = []
-        st.rerun()
+    st.markdown('<div class="header-buttons">', unsafe_allow_html=True)
+    button_col1, button_col2, button_col3 = st.columns(3)
+    
+    with button_col1:
+        if st.button("💾 Save", use_container_width=True):
+            success, message = save_current_chat()
+            if success:
+                st.success(message)
+                time.sleep(1)
+                st.rerun()
+            else:
+                st.info(message)
+    
+    with button_col2:
+        if st.button("🗑 Clear", use_container_width=True):
+            st.session_state.messages = []
+            st.rerun()
+    
+    with button_col3:
+        if st.button("📁 New", use_container_width=True):
+            st.session_state.messages = []
+            st.session_state.embeddings = None
+            st.session_state.chunks = []
+            st.session_state.meta = []
+            st.session_state.current_chat_name = f"Chat {len(st.session_state.saved_chats) + 1}"
+            st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # Upload area
 st.markdown("""
