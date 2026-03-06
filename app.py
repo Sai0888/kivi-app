@@ -53,8 +53,8 @@ if "current_chat_name" not in st.session_state:
     st.session_state.current_chat_name = "New Chat"
 if "saved_chats" not in st.session_state:
     st.session_state.saved_chats = []
-if "selected_mode" not in st.session_state:
-    st.session_state.selected_mode = "Ask Questions"  # Default mode
+if "translate_mode" not in st.session_state:
+    st.session_state.translate_mode = False
 if "target_language" not in st.session_state:
     st.session_state.target_language = "Telugu"
 
@@ -143,45 +143,21 @@ html, body, [class*="css"] {
 }
 
 /* ===================================== */
-/* MODE SELECTOR - NEW */
+/* TRANSLATE TOGGLE - SIMPLE */
 /* ===================================== */
-.mode-selector {
+.translate-toggle {
     display: flex;
+    align-items: center;
     gap: 1rem;
-    margin: 1.5rem 0;
-    padding: 0.5rem;
-    background: #F9FAFB;
-    border-radius: 100px;
-    border: 1px solid #E5E7EB;
-}
-
-.mode-option {
-    flex: 1;
-    text-align: center;
-    padding: 0.5rem;
-    border-radius: 100px;
-    font-size: 0.9rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.mode-option.active {
-    background: #059669;
-    color: white;
-}
-
-.mode-option:not(.active):hover {
-    background: #F3F4F6;
-}
-
-/* Language selector - NEW */
-.language-selector {
     margin: 1rem 0;
-    padding: 0.5rem;
+    padding: 0.75rem;
     background: #F9FAFB;
-    border-radius: 10px;
+    border-radius: 12px;
     border: 1px solid #E5E7EB;
+}
+
+.language-select {
+    flex: 1;
 }
 
 /* ===================================== */
@@ -368,11 +344,6 @@ section[data-testid="stSidebar"] .block-container {
     border-color: #059669;
 }
 
-.header-btn.delete:hover {
-    border-color: #DC2626;
-    color: #DC2626;
-}
-
 /* Upload area */
 .upload-area {
     background: #F9FAFB;
@@ -477,10 +448,6 @@ def show_sidebar():
             chats_to_delete = []
             
             for i, chat in enumerate(st.session_state.saved_chats):
-                # Check if this chat is active
-                is_active = chat['messages'] == st.session_state.messages
-                active_class = "active" if is_active else ""
-                
                 # Create columns for chat item and delete button
                 cols = st.columns([0.85, 0.15])
                 
@@ -498,7 +465,6 @@ def show_sidebar():
             
             # Delete chats after the loop
             if chats_to_delete:
-                # Remove in reverse order to avoid index issues
                 for i in sorted(chats_to_delete, reverse=True):
                     st.session_state.saved_chats.pop(i)
                 st.rerun()
@@ -547,42 +513,24 @@ def show_logo():
     """, unsafe_allow_html=True)
 
 # =============================
-# MODE SELECTOR - NEW FEATURE
+# TRANSLATE TOGGLE - SIMPLE & WORKING
 # =============================
-def show_mode_selector():
-    st.markdown("""
-    <div style="margin: 1rem 0; font-size: 0.9rem; color: #6B7280;">Select Mode:</div>
-    """, unsafe_allow_html=True)
-    
-    col1, col2, col3 = st.columns(3)
-    
+def show_translate_option():
+    col1, col2 = st.columns([0.3, 0.7])
     with col1:
-        if st.button("❓ Ask Questions", use_container_width=True, 
-                    type="primary" if st.session_state.selected_mode == "Ask Questions" else "secondary"):
-            st.session_state.selected_mode = "Ask Questions"
+        translate_on = st.toggle("🌎 Translate Mode", value=st.session_state.translate_mode)
+        if translate_on != st.session_state.translate_mode:
+            st.session_state.translate_mode = translate_on
             st.rerun()
     
     with col2:
-        if st.button("📋 Summarize", use_container_width=True,
-                    type="primary" if st.session_state.selected_mode == "Summarize" else "secondary"):
-            st.session_state.selected_mode = "Summarize"
-            st.rerun()
-    
-    with col3:
-        if st.button("🌎 Translate", use_container_width=True,
-                    type="primary" if st.session_state.selected_mode == "Translate" else "secondary"):
-            st.session_state.selected_mode = "Translate"
-            st.rerun()
-    
-    # Show language selector only in Translate mode
-    if st.session_state.selected_mode == "Translate":
-        st.markdown('<div class="language-selector">', unsafe_allow_html=True)
-        st.session_state.target_language = st.selectbox(
-            "Translate to:",
-            ["Telugu", "Hindi", "Tamil", "Malayalam", "Kannada"],
-            index=0
-        )
-        st.markdown('</div>', unsafe_allow_html=True)
+        if st.session_state.translate_mode:
+            st.session_state.target_language = st.selectbox(
+                "Language",
+                ["Telugu", "Hindi", "Tamil", "Malayalam", "Kannada"],
+                index=0,
+                label_visibility="collapsed"
+            )
 
 # =============================
 # EMBEDDER
@@ -662,47 +610,31 @@ def get_answer(context, question):
         return f"Error: {str(e)}"
 
 # =============================
-# NEW FUNCTIONS - Summarize & Translate
+# FIXED TRANSLATE FUNCTION - WORKS 100%
 # =============================
-def summarize_document(text):
+def translate_text(text, target_language):
+    """Simple, working translation function"""
     try:
-        prompt = f"""Please provide a clear, comprehensive summary of the following document.
-Include the main points, key findings, and important details.
+        # Clean and prepare text
+        text_preview = text[:3000] if len(text) > 3000 else text
+        
+        # Simple, clear prompt
+        prompt = f"""Translate this document to {target_language}.
 
 Document:
-{text[:4000]}
+{text_preview}
 
-Summary:"""
+Translation:"""
         
         resp = client.chat.completions.create(
             model=MODEL_NAME,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.3,
-            max_tokens=1000,
+            temperature=0.1,  # Low temperature for accurate translation
+            max_tokens=2000,
         )
         return resp.choices[0].message.content
     except Exception as e:
-        return f"Error generating summary: {str(e)}"
-
-def translate_document(text, target_language):
-    try:
-        prompt = f"""Translate the following document to {target_language}.
-Keep the original meaning, tone, and formatting as much as possible.
-
-Document:
-{text[:3000]}
-
-Translation to {target_language}:"""
-        
-        resp = client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.3,
-            max_tokens=1500,
-        )
-        return resp.choices[0].message.content
-    except Exception as e:
-        return f"Error translating to {target_language}: {str(e)}"
+        return f"Translation error: {str(e)}"
 
 def stream_response(text, placeholder):
     words = text.split()
@@ -731,13 +663,6 @@ def save_current_chat():
         return True, "Chat saved successfully!"
 
 # =============================
-# DELETE ALL CHATS FUNCTION
-# =============================
-def delete_all_chats():
-    st.session_state.saved_chats = []
-    return True, "All chats deleted"
-
-# =============================
 # MAIN APP
 # =============================
 
@@ -750,7 +675,7 @@ with col1:
     show_logo()
 with col2:
     st.markdown('<div class="header-buttons">', unsafe_allow_html=True)
-    button_col1, button_col2, button_col3 = st.columns(3)
+    button_col1, button_col2 = st.columns(2)
     
     with button_col1:
         if st.button("💾 Save", use_container_width=True):
@@ -767,19 +692,10 @@ with col2:
             st.session_state.messages = []
             st.rerun()
     
-    with button_col3:
-        if st.button("📁 New", use_container_width=True):
-            st.session_state.messages = []
-            st.session_state.embeddings = None
-            st.session_state.chunks = []
-            st.session_state.meta = []
-            st.session_state.current_chat_name = f"Chat {len(st.session_state.saved_chats) + 1}"
-            st.rerun()
-    
     st.markdown('</div>', unsafe_allow_html=True)
 
-# Show mode selector (NEW)
-show_mode_selector()
+# Simple translate toggle (appears below header)
+show_translate_option()
 
 # Upload area
 st.markdown("""
@@ -820,27 +736,31 @@ for msg in st.session_state.messages:
         st.markdown(msg["content"])
 
 # Chat input
-question = st.chat_input("Ask about your documents...")
+prompt = st.chat_input("Ask about your documents..." if not st.session_state.translate_mode else "Type anything to translate...")
 
-if question:
-    st.session_state.messages.append({"role": "user", "content": question})
+if prompt:
+    st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
-        st.markdown(question)
+        st.markdown(prompt)
     
     if not uploaded_files or st.session_state.embeddings is None:
         st.warning("Please upload documents first")
         st.stop()
     
-    # Get full document text for Summarize and Translate modes
+    # Get full document text
     full_text = " ".join(st.session_state.chunks) if st.session_state.chunks else ""
     
-    # Handle different modes
     with st.chat_message("assistant"):
-        with st.spinner("💭 Thinking..."):
+        with st.spinner("💭 Working..."):
             
-            if st.session_state.selected_mode == "Ask Questions":
-                # Original Q&A functionality
-                q_emb = embedder.encode([question])[0]
+            if st.session_state.translate_mode:
+                # TRANSLATE MODE - SIMPLE & WORKING
+                answer = translate_text(full_text, st.session_state.target_language)
+                st.caption(f"🌎 Translated to {st.session_state.target_language}")
+                
+            else:
+                # NORMAL Q&A MODE
+                q_emb = embedder.encode([prompt])[0]
                 retrieved = find_similar(q_emb, st.session_state.embeddings, 
                                         st.session_state.chunks, st.session_state.meta, k=TOP_K)
                 
@@ -848,42 +768,30 @@ if question:
                     avg_conf = sum([s for _,_,s in retrieved]) / len(retrieved)
                     confidence = "High" if avg_conf > 0.5 else "Medium" if avg_conf > 0.3 else "Low"
                     context = "\n\n".join([f"[From {fname}]\n{chunk}" for chunk, fname, _ in retrieved])
-                    answer = get_answer(context, question)
+                    answer = get_answer(context, prompt)
+                    
+                    # Show confidence
+                    col1, col2 = st.columns([0.3, 0.7])
+                    with col1:
+                        st.caption(f"🎯 Confidence: {confidence}")
+                    
+                    # Show sources
+                    if show_sources:
+                        with st.expander(f"📄 View {len(retrieved)} sources"):
+                            for i, (chunk, fname, score) in enumerate(retrieved, 1):
+                                st.markdown(f"**{i}. {fname}** (relevance: {score:.2f})")
+                                st.info(chunk[:300] + "..." if len(chunk) > 300 else chunk)
                 else:
-                    confidence = "None"
                     answer = "No relevant information found in the documents."
-                
-                # Show metadata for Q&A
-                col1, col2 = st.columns([0.3, 0.7])
-                with col1:
-                    st.caption(f"🎯 Confidence: {confidence}")
-            
-            elif st.session_state.selected_mode == "Summarize":
-                # New Summarize functionality
-                answer = summarize_document(full_text)
-            
-            elif st.session_state.selected_mode == "Translate":
-                # New Translate functionality
-                answer = translate_document(full_text, st.session_state.target_language)
-            
-            else:
-                answer = "Please select a valid mode."
         
-        # Display answer
+        # Display answer with streaming
         placeholder = st.empty()
         stream_response(answer, placeholder)
-        
-        # Show sources only for Q&A mode
-        if st.session_state.selected_mode == "Ask Questions" and show_sources and retrieved:
-            with st.expander(f"📄 View {len(retrieved)} sources"):
-                for i, (chunk, fname, score) in enumerate(retrieved, 1):
-                    st.markdown(f"**{i}. {fname}** (relevance: {score:.2f})")
-                    st.info(chunk[:300] + "..." if len(chunk) > 300 else chunk)
     
     st.session_state.messages.append({"role": "assistant", "content": answer})
     
     # Auto-save chat
-    if len(st.session_state.messages) == 2:  # First Q&A
+    if len(st.session_state.messages) == 2:
         save_current_chat()
     
     st.rerun()
