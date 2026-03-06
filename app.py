@@ -37,7 +37,7 @@ client = Groq(api_key=GROQ_API_KEY)
 MODEL_NAME = "llama-3.1-8b-instant"
 
 # =============================
-# LANGUAGES
+# LANGUAGES - CONSISTENT NAMES
 # =============================
 LANGUAGES = {
     "English": None,
@@ -48,7 +48,7 @@ LANGUAGES = {
 }
 
 # =============================
-# SESSION STATE
+# SESSION STATE - FIXED
 # =============================
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -66,13 +66,16 @@ if "saved_chats" not in st.session_state:
     st.session_state.saved_chats = []
 if "selected_language" not in st.session_state:
     st.session_state.selected_language = "English"
+else:
+    # FIX: Validate existing language against current LANGUAGES
+    if st.session_state.selected_language not in LANGUAGES:
+        st.session_state.selected_language = "English"
 
 # =============================
-# PROFESSIONAL CSS - CLEAN & MODERN
+# PROFESSIONAL CSS
 # =============================
 st.markdown("""
 <style>
-/* Import fonts */
 @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
 
 /* ===== RESET & BASE ===== */
@@ -96,7 +99,7 @@ html, body, [class*="css"] {
     display: none;
 }
 
-/* ===== SIDEBAR - CLEAN & MINIMAL ===== */
+/* ===== SIDEBAR ===== */
 section[data-testid="stSidebar"] {
     background: #F8FAFC !important;
     border-right: 1px solid #E2E8F0 !important;
@@ -511,7 +514,7 @@ def save_current_chat():
     return False, "Nothing to save"
 
 # =============================
-# SIDEBAR
+# SIDEBAR - FIXED
 # =============================
 with st.sidebar:
     # Header
@@ -531,13 +534,19 @@ with st.sidebar:
         st.session_state.current_chat_name = f"Chat {len(st.session_state.saved_chats) + 1}"
         st.rerun()
     
-    # Language Selection
+    # Language Selection - FIXED with validation
     st.markdown('<div class="section-label">🌐 Language</div>', unsafe_allow_html=True)
+    
+    # Ensure selected language is valid
+    if st.session_state.selected_language not in LANGUAGES:
+        st.session_state.selected_language = "English"
+    
     selected_lang = st.selectbox(
         "Language",
         options=list(LANGUAGES.keys()),
         index=list(LANGUAGES.keys()).index(st.session_state.selected_language),
-        label_visibility="collapsed"
+        label_visibility="collapsed",
+        key="lang_selector_main"
     )
     st.session_state.selected_language = selected_lang
     
