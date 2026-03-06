@@ -143,7 +143,7 @@ html, body, [class*="css"] {
 }
 
 /* ===================================== */
-/* TRANSLATE TOGGLE - SIMPLE */
+/* TRANSLATE TOGGLE */
 /* ===================================== */
 .translate-toggle {
     display: flex;
@@ -156,12 +156,8 @@ html, body, [class*="css"] {
     border: 1px solid #E5E7EB;
 }
 
-.language-select {
-    flex: 1;
-}
-
 /* ===================================== */
-/* SIDEBAR - PERMANENT */
+/* SIDEBAR */
 /* ===================================== */
 section[data-testid="stSidebar"] {
     background: #F9FAFB !important;
@@ -413,11 +409,10 @@ section[data-testid="stSidebar"] .block-container {
 """, unsafe_allow_html=True)
 
 # =============================
-# SIDEBAR - WITH DELETE FUNCTIONALITY
+# SIDEBAR
 # =============================
 def show_sidebar():
     with st.sidebar:
-        # Simple header with Kivi
         st.markdown("""
         <div class="sidebar-header">
             <div style="display: flex; align-items: center; gap: 8px;">
@@ -427,7 +422,6 @@ def show_sidebar():
         </div>
         """, unsafe_allow_html=True)
         
-        # New Chat Button
         if st.button("➕ New Chat", use_container_width=True):
             st.session_state.messages = []
             st.session_state.embeddings = None
@@ -438,32 +432,23 @@ def show_sidebar():
         
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # Saved Chats Section
         st.markdown('<div class="sidebar-title">💬 SAVED CHATS</div>', unsafe_allow_html=True)
         
         if st.session_state.saved_chats:
             st.markdown('<div class="chat-list">', unsafe_allow_html=True)
-            
-            # Create a list to track which chats to delete
             chats_to_delete = []
             
             for i, chat in enumerate(st.session_state.saved_chats):
-                # Create columns for chat item and delete button
                 cols = st.columns([0.85, 0.15])
-                
                 with cols[0]:
-                    # Chat button
                     if st.button(f"📄 {chat['name']}", key=f"chat_load_{i}", use_container_width=True):
                         st.session_state.messages = chat['messages']
                         st.session_state.current_chat_name = chat['name']
                         st.rerun()
-                
                 with cols[1]:
-                    # Delete button
                     if st.button("🗑️", key=f"chat_delete_{i}", use_container_width=True):
                         chats_to_delete.append(i)
             
-            # Delete chats after the loop
             if chats_to_delete:
                 for i in sorted(chats_to_delete, reverse=True):
                     st.session_state.saved_chats.pop(i)
@@ -475,12 +460,10 @@ def show_sidebar():
         
         st.divider()
         
-        # Settings
         with st.expander("⚙️ Settings", expanded=False):
             TOP_K = st.slider("Chunks to retrieve", 3, 10, 5)
             show_sources = st.checkbox("Show sources", value=True)
         
-        # Stats
         st.markdown('<div class="sidebar-title">📊 STATS</div>', unsafe_allow_html=True)
         st.markdown(f"""
         <div class="stats-grid">
@@ -513,12 +496,12 @@ def show_logo():
     """, unsafe_allow_html=True)
 
 # =============================
-# TRANSLATE TOGGLE - SIMPLE & WORKING
+# TRANSLATE TOGGLE
 # =============================
 def show_translate_option():
     col1, col2 = st.columns([0.3, 0.7])
     with col1:
-        translate_on = st.toggle("🌎 Translate Mode", value=st.session_state.translate_mode)
+        translate_on = st.toggle("🌎 Translate", value=st.session_state.translate_mode)
         if translate_on != st.session_state.translate_mode:
             st.session_state.translate_mode = translate_on
             st.rerun()
@@ -609,16 +592,10 @@ def get_answer(context, question):
     except Exception as e:
         return f"Error: {str(e)}"
 
-# =============================
-# FIXED TRANSLATE FUNCTION - WORKS 100%
-# =============================
 def translate_text(text, target_language):
-    """Simple, working translation function"""
+    """Simple working translation"""
     try:
-        # Clean and prepare text
         text_preview = text[:3000] if len(text) > 3000 else text
-        
-        # Simple, clear prompt
         prompt = f"""Translate this document to {target_language}.
 
 Document:
@@ -629,7 +606,7 @@ Translation:"""
         resp = client.chat.completions.create(
             model=MODEL_NAME,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.1,  # Low temperature for accurate translation
+            temperature=0.1,
             max_tokens=2000,
         )
         return resp.choices[0].message.content
@@ -644,17 +621,12 @@ def stream_response(text, placeholder):
         placeholder.markdown(displayed + ("▌" if i < len(words)-1 else ""))
         time.sleep(0.02)
 
-# =============================
-# SAVE CHAT FUNCTION
-# =============================
 def save_current_chat():
     if st.session_state.messages:
         chat_name = st.session_state.current_chat_name
-        # Check if chat already exists
         for chat in st.session_state.saved_chats:
             if chat['messages'] == st.session_state.messages:
                 return False, "Chat already saved"
-        # Save new chat
         st.session_state.saved_chats.append({
             "name": chat_name,
             "messages": st.session_state.messages.copy(),
@@ -666,17 +638,15 @@ def save_current_chat():
 # MAIN APP
 # =============================
 
-# Show sidebar
 TOP_K, show_sources = show_sidebar()
 
-# Main header with logo and buttons
+# Header
 col1, col2 = st.columns([0.6, 0.4])
 with col1:
     show_logo()
 with col2:
     st.markdown('<div class="header-buttons">', unsafe_allow_html=True)
     button_col1, button_col2 = st.columns(2)
-    
     with button_col1:
         if st.button("💾 Save", use_container_width=True):
             success, message = save_current_chat()
@@ -686,15 +656,13 @@ with col2:
                 st.rerun()
             else:
                 st.info(message)
-    
     with button_col2:
         if st.button("🗑 Clear", use_container_width=True):
             st.session_state.messages = []
             st.rerun()
-    
     st.markdown('</div>', unsafe_allow_html=True)
 
-# Simple translate toggle (appears below header)
+# Translate toggle
 show_translate_option()
 
 # Upload area
@@ -713,29 +681,42 @@ uploaded_files = st.file_uploader(
     label_visibility="collapsed"
 )
 
-# Process uploaded files
+# =============================
+# PROCESS UPLOADED FILES - FIXED
+# =============================
 if uploaded_files:
     new_hash = hashlib.sha256(str([f.name for f in uploaded_files]).encode()).hexdigest()
     
+    # Check if files have changed
     if st.session_state.files_hash != new_hash:
         with st.spinner("🔮 Processing documents..."):
             embeddings, chunks, meta = process_files(uploaded_files)
-            st.session_state.embeddings = embeddings
-            st.session_state.chunks = chunks
-            st.session_state.meta = meta
-            st.session_state.files_hash = new_hash
-        
-        if embeddings is not None:
-            st.success(f"✅ Ready! {len(chunks)} chunks from {len(uploaded_files)} files")
-        else:
-            st.warning("No readable text found")
+            
+            # Only update if embeddings were created successfully
+            if embeddings is not None and len(chunks) > 0:
+                st.session_state.embeddings = embeddings
+                st.session_state.chunks = chunks
+                st.session_state.meta = meta
+                st.session_state.files_hash = new_hash
+                st.success(f"✅ Ready! {len(chunks)} chunks from {len(uploaded_files)} files")
+            else:
+                st.warning("No readable text found in the uploaded files")
+                st.session_state.embeddings = None
+                st.session_state.chunks = []
+                st.session_state.meta = []
+    else:
+        # Files haven't changed, verify embeddings exist
+        if st.session_state.embeddings is None:
+            st.info("📄 Please upload documents with text content")
 
 # Display chat history
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# Chat input
+# =============================
+# CHAT INPUT - FIXED CONDITION
+# =============================
 prompt = st.chat_input("Ask about your documents..." if not st.session_state.translate_mode else "Type anything to translate...")
 
 if prompt:
@@ -743,8 +724,9 @@ if prompt:
     with st.chat_message("user"):
         st.markdown(prompt)
     
-    if not uploaded_files or st.session_state.embeddings is None:
-        st.warning("Please upload documents first")
+    # Check if documents are actually processed (FIXED)
+    if st.session_state.embeddings is None or len(st.session_state.chunks) == 0:
+        st.warning("📄 Please upload and process documents first")
         st.stop()
     
     # Get full document text
@@ -754,7 +736,7 @@ if prompt:
         with st.spinner("💭 Working..."):
             
             if st.session_state.translate_mode:
-                # TRANSLATE MODE - SIMPLE & WORKING
+                # TRANSLATE MODE
                 answer = translate_text(full_text, st.session_state.target_language)
                 st.caption(f"🌎 Translated to {st.session_state.target_language}")
                 
@@ -784,7 +766,7 @@ if prompt:
                 else:
                     answer = "No relevant information found in the documents."
         
-        # Display answer with streaming
+        # Display answer
         placeholder = st.empty()
         stream_response(answer, placeholder)
     
