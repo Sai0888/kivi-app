@@ -20,7 +20,7 @@ import docx
 
 # Page config
 st.set_page_config(
-    page_title="Kivi - Intelligent Document Assistant",
+    page_title="Kivi - GenAI Document Assistant",
     page_icon="🥝",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -52,7 +52,11 @@ if "files_hash" not in st.session_state:
 if "current_chat_name" not in st.session_state:
     st.session_state.current_chat_name = "New Chat"
 if "saved_chats" not in st.session_state:
-    st.session_state.saved_chats = []  # Store chats in session
+    st.session_state.saved_chats = []
+if "uploaded_file_names" not in st.session_state:
+    st.session_state.uploaded_file_names = []
+if "genai_mode" not in st.session_state:
+    st.session_state.genai_mode = "Q&A"  # Default mode
 
 # =============================
 # CLEAN PROFESSIONAL CSS
@@ -76,7 +80,7 @@ html, body, [class*="css"] {
 /* Main container */
 .main .block-container {
     padding: 2rem 2.5rem;
-    max-width: 1200px;
+    max-width: 1400px;
     margin: 0 auto;
 }
 
@@ -139,8 +143,81 @@ html, body, [class*="css"] {
 }
 
 /* ===================================== */
-/* SIDEBAR - PERMANENT */
+/* GENAI MODE SELECTOR */
 /* ===================================== */
+.genai-selector {
+    background: #F9FAFB;
+    border: 1px solid #E5E7EB;
+    border-radius: 100px;
+    padding: 0.25rem;
+    display: flex;
+    margin: 1rem 0 2rem 0;
+}
+
+.genai-option {
+    flex: 1;
+    text-align: center;
+    padding: 0.5rem;
+    border-radius: 100px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.genai-option.active {
+    background: #059669;
+    color: white;
+}
+
+.genai-option:not(.active):hover {
+    background: #F3F4F6;
+}
+
+/* ===================================== */
+/* DOCUMENT PREVIEW */
+/* ===================================== */
+.doc-preview {
+    background: #F9FAFB;
+    border: 1px solid #E5E7EB;
+    border-radius: 12px;
+    padding: 1rem;
+    margin: 1rem 0;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.doc-preview-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0.5rem;
+    border-bottom: 1px solid #E5E7EB;
+}
+
+.doc-preview-item:last-child {
+    border-bottom: none;
+}
+
+.doc-preview-name {
+    flex: 1;
+    font-size: 0.9rem;
+    color: #111827;
+}
+
+.doc-preview-size {
+    font-size: 0.8rem;
+    color: #6B7280;
+}
+
+.doc-preview-status {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #059669;
+}
+
+/* Sidebar */
 section[data-testid="stSidebar"] {
     background: #F9FAFB !important;
     border-right: 1px solid #E5E7EB !important;
@@ -149,10 +226,8 @@ section[data-testid="stSidebar"] {
 
 section[data-testid="stSidebar"] .block-container {
     padding: 1.5rem 1rem !important;
-    max-width: 100% !important;
 }
 
-/* Sidebar header */
 .sidebar-header {
     padding: 0 0 1.5rem 0;
     margin-bottom: 1.5rem;
@@ -168,32 +243,9 @@ section[data-testid="stSidebar"] .block-container {
     margin-bottom: 1rem;
 }
 
-/* New Chat button */
-.new-chat-btn {
-    width: 100%;
-    padding: 0.75rem;
-    background: white;
-    border: 1px solid #E5E7EB;
-    border-radius: 10px;
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: #111827;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 1.5rem;
-}
-
-.new-chat-btn:hover {
-    background: #F3F4F6;
-    border-color: #059669;
-}
-
 /* Chat list */
 .chat-list {
-    max-height: 400px;
+    max-height: 300px;
     overflow-y: auto;
     margin-bottom: 1rem;
 }
@@ -238,8 +290,6 @@ section[data-testid="stSidebar"] .block-container {
 .chat-item-meta {
     font-size: 0.7rem;
     color: #9CA3AF;
-    display: flex;
-    gap: 8px;
 }
 
 .chat-delete-btn {
@@ -251,7 +301,6 @@ section[data-testid="stSidebar"] .block-container {
     cursor: pointer;
     padding: 0.25rem 0.5rem;
     border-radius: 6px;
-    transition: all 0.2s;
 }
 
 .chat-item:hover .chat-delete-btn {
@@ -283,7 +332,6 @@ section[data-testid="stSidebar"] .block-container {
     font-size: 1.5rem;
     font-weight: 600;
     color: #059669;
-    line-height: 1;
 }
 
 .stat-label {
@@ -291,14 +339,12 @@ section[data-testid="stSidebar"] .block-container {
     color: #6B7280;
 }
 
-/* ===================================== */
-/* MAIN CONTENT */
-/* ===================================== */
+/* Main header */
 .main-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
 }
 
 .header-buttons {
@@ -314,7 +360,6 @@ section[data-testid="stSidebar"] .block-container {
     font-size: 0.9rem;
     color: #374151;
     cursor: pointer;
-    transition: all 0.2s;
 }
 
 .header-btn:hover {
@@ -322,20 +367,14 @@ section[data-testid="stSidebar"] .block-container {
     border-color: #059669;
 }
 
-.header-btn.delete:hover {
-    border-color: #DC2626;
-    color: #DC2626;
-}
-
 /* Upload area */
 .upload-area {
     background: #F9FAFB;
     border: 2px dashed #E5E7EB;
     border-radius: 16px;
-    padding: 2.5rem;
+    padding: 2rem;
     text-align: center;
-    margin: 1.5rem 0;
-    transition: all 0.2s;
+    margin: 1rem 0;
 }
 
 .upload-area:hover {
@@ -378,29 +417,14 @@ section[data-testid="stSidebar"] .block-container {
     border-radius: 100px !important;
     padding: 0.5rem 1.5rem !important;
 }
-
-/* Expander */
-.streamlit-expanderHeader {
-    background: #F9FAFB !important;
-    border: 1px solid #E5E7EB !important;
-    border-radius: 10px !important;
-}
-
-/* Success message */
-.stSuccess {
-    background: #E6F7E6 !important;
-    color: #059669 !important;
-    border: 1px solid #059669 !important;
-}
 </style>
 """, unsafe_allow_html=True)
 
 # =============================
-# SIDEBAR - WITH DELETE FUNCTIONALITY
+# SIDEBAR
 # =============================
 def show_sidebar():
     with st.sidebar:
-        # Simple header with Kivi
         st.markdown("""
         <div class="sidebar-header">
             <div style="display: flex; align-items: center; gap: 8px;">
@@ -410,7 +434,6 @@ def show_sidebar():
         </div>
         """, unsafe_allow_html=True)
         
-        # New Chat Button
         if st.button("➕ New Chat", use_container_width=True):
             st.session_state.messages = []
             st.session_state.embeddings = None
@@ -420,61 +443,40 @@ def show_sidebar():
             st.rerun()
         
         st.markdown("<br>", unsafe_allow_html=True)
-        
-        # Saved Chats Section
         st.markdown('<div class="sidebar-title">💬 SAVED CHATS</div>', unsafe_allow_html=True)
         
         if st.session_state.saved_chats:
-            st.markdown('<div class="chat-list">', unsafe_allow_html=True)
-            
-            # Create a list to track which chats to delete
             chats_to_delete = []
-            
             for i, chat in enumerate(st.session_state.saved_chats):
-                # Check if this chat is active
-                is_active = chat['messages'] == st.session_state.messages
-                active_class = "active" if is_active else ""
-                
-                # Create columns for chat item and delete button
                 cols = st.columns([0.85, 0.15])
-                
                 with cols[0]:
-                    # Chat button
                     if st.button(f"📄 {chat['name']}", key=f"chat_load_{i}", use_container_width=True):
                         st.session_state.messages = chat['messages']
                         st.session_state.current_chat_name = chat['name']
                         st.rerun()
-                
                 with cols[1]:
-                    # Delete button
                     if st.button("🗑️", key=f"chat_delete_{i}", use_container_width=True):
                         chats_to_delete.append(i)
             
-            # Delete chats after the loop
             if chats_to_delete:
-                # Remove in reverse order to avoid index issues
                 for i in sorted(chats_to_delete, reverse=True):
                     st.session_state.saved_chats.pop(i)
                 st.rerun()
-            
-            st.markdown('</div>', unsafe_allow_html=True)
         else:
             st.caption("No saved chats yet")
         
         st.divider()
         
-        # Settings
         with st.expander("⚙️ Settings", expanded=False):
             TOP_K = st.slider("Chunks to retrieve", 3, 10, 5)
             show_sources = st.checkbox("Show sources", value=True)
         
-        # Stats
         st.markdown('<div class="sidebar-title">📊 STATS</div>', unsafe_allow_html=True)
         st.markdown(f"""
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-number">{len(set([m['file'] for m in st.session_state.meta])) if st.session_state.meta else 0}</div>
-                <div class="stat-label">Documents</div>
+                <div class="stat-number">{len(st.session_state.uploaded_file_names)}</div>
+                <div class="stat-label">Files</div>
             </div>
             <div class="stat-card">
                 <div class="stat-number">{len(st.session_state.chunks)}</div>
@@ -501,6 +503,117 @@ def show_logo():
     """, unsafe_allow_html=True)
 
 # =============================
+# GENAI MODE SELECTOR
+# =============================
+def show_genai_selector():
+    modes = ["Q&A", "Summarize", "Translate", "Analyze", "Extract"]
+    
+    html = '<div class="genai-selector">'
+    for mode in modes:
+        active_class = "active" if st.session_state.genai_mode == mode else ""
+        html += f'<div class="genai-option {active_class}" onclick="alert(\'{mode}\')">{mode}</div>'
+    html += '</div>'
+    
+    st.markdown(html, unsafe_allow_html=True)
+    
+    # Radio buttons for actual functionality (hidden but functional)
+    selected = st.radio(
+        "Mode",
+        modes,
+        index=modes.index(st.session_state.genai_mode),
+        label_visibility="collapsed",
+        key="mode_selector"
+    )
+    if selected != st.session_state.genai_mode:
+        st.session_state.genai_mode = selected
+        st.rerun()
+
+# =============================
+# DOCUMENT PREVIEW
+# =============================
+def show_document_preview():
+    if st.session_state.uploaded_file_names:
+        st.markdown('<div class="doc-preview">', unsafe_allow_html=True)
+        for fname in st.session_state.uploaded_file_names:
+            st.markdown(f"""
+            <div class="doc-preview-item">
+                <span>📄</span>
+                <span class="doc-preview-name">{fname}</span>
+                <span class="doc-preview-status"></span>
+            </div>
+            """, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# =============================
+# GENAI FUNCTIONS
+# =============================
+def summarize_document(context):
+    prompt = f"""Please provide a comprehensive summary of the following document. 
+    Include main points, key findings, and important details:
+    
+    {context[:3000]}"""
+    
+    try:
+        resp = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=1000,
+        )
+        return resp.choices[0].message.content
+    except:
+        return "Error generating summary"
+
+def translate_text(text, target_language="Spanish"):
+    prompt = f"Translate the following text to {target_language}:\n\n{text[:2000]}"
+    
+    try:
+        resp = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=1000,
+        )
+        return resp.choices[0].message.content
+    except:
+        return "Error translating text"
+
+def analyze_document(context):
+    prompt = f"""Analyze this document and provide:
+    1. Main topic
+    2. Key themes
+    3. Sentiment
+    4. Complexity level
+    5. Target audience
+    
+    Document: {context[:2000]}"""
+    
+    try:
+        resp = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=800,
+        )
+        return resp.choices[0].message.content
+    except:
+        return "Error analyzing document"
+
+def extract_key_info(context, info_type="key points"):
+    prompt = f"Extract and list the most important {info_type} from this document:\n\n{context[:2000]}"
+    
+    try:
+        resp = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=800,
+        )
+        return resp.choices[0].message.content
+    except:
+        return f"Error extracting {info_type}"
+
+# =============================
 # EMBEDDER
 # =============================
 @st.cache_resource
@@ -522,7 +635,7 @@ def extract_text(file):
             return "\n".join([p.text for p in doc.paragraphs if p.text])
         else:
             return file.read().decode("utf-8", errors="ignore")
-    except Exception as e:
+    except:
         return ""
 
 def chunk_text(text, chunk_size=500, overlap=100):
@@ -536,13 +649,17 @@ def chunk_text(text, chunk_size=500, overlap=100):
 
 def process_files(files):
     all_chunks, all_meta = [], []
+    file_names = []
     
     for f in files:
+        file_names.append(f.name)
         text = extract_text(f)
         if text.strip():
             chunks = chunk_text(text)
             all_chunks.extend(chunks)
             all_meta.extend([{"file": f.name}] * len(chunks))
+    
+    st.session_state.uploaded_file_names = file_names
     
     if not all_chunks:
         return None, [], []
@@ -551,210 +668,140 @@ def process_files(files):
     return embeddings, all_chunks, all_meta
 
 def find_similar(query_emb, embeddings, chunks, meta, k=5):
-    if embeddings is None or len(embeddings) == 0:
+    if embeddings is None:
         return []
-    
     similarities = cosine_similarity([query_emb], embeddings)[0]
     top_indices = np.argsort(similarities)[-k:][::-1]
-    
     return [(chunks[i], meta[i]["file"], similarities[i]) for i in top_indices]
 
-def get_answer(context, question):
+def get_answer(context, question, mode="Q&A"):
+    if mode == "Q&A":
+        prompt = f"Context:\n{context}\n\nQuestion: {question}\n\nAnswer based only on the context:"
+    elif mode == "Summarize":
+        return summarize_document(context)
+    elif mode == "Translate":
+        return translate_text(context)
+    elif mode == "Analyze":
+        return analyze_document(context)
+    elif mode == "Extract":
+        return extract_key_info(context, question)
+    
     try:
-        system_prompt = """You are Kivi, an intelligent document assistant. Answer based ONLY on the provided context. 
-        Be concise, accurate, and helpful. If information is not in the context, say so clearly."""
-        
         resp = client.chat.completions.create(
             model=MODEL_NAME,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {question}"},
-            ],
+            messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
             max_tokens=800,
         )
         return resp.choices[0].message.content
-    except Exception as e:
-        return f"Error: {str(e)}"
+    except:
+        return "Error generating response"
 
-def stream_response(text, placeholder):
-    words = text.split()
-    displayed = ""
-    for i, word in enumerate(words):
-        displayed += word + " "
-        placeholder.markdown(displayed + ("▌" if i < len(words)-1 else ""))
-        time.sleep(0.02)
-
-# =============================
-# SAVE CHAT FUNCTION
-# =============================
 def save_current_chat():
     if st.session_state.messages:
-        chat_name = st.session_state.current_chat_name
-        # Check if chat already exists
         for chat in st.session_state.saved_chats:
             if chat['messages'] == st.session_state.messages:
-                return False, "Chat already saved"
-        # Save new chat
+                return False, "Already saved"
         st.session_state.saved_chats.append({
-            "name": chat_name,
+            "name": st.session_state.current_chat_name,
             "messages": st.session_state.messages.copy(),
             "date": datetime.now().strftime("%Y-%m-%d %H:%M")
         })
-        return True, "Chat saved successfully!"
-
-# =============================
-# DELETE ALL CHATS FUNCTION
-# =============================
-def delete_all_chats():
-    st.session_state.saved_chats = []
-    return True, "All chats deleted"
+        return True, "Chat saved!"
 
 # =============================
 # MAIN APP
 # =============================
 
-# Show sidebar
 TOP_K, show_sources = show_sidebar()
 
-# Main header with logo and buttons
-col1, col2 = st.columns([0.6, 0.4])
+# Header with only 2 buttons (removed duplicate)
+col1, col2 = st.columns([0.7, 0.3])
 with col1:
     show_logo()
 with col2:
-    st.markdown('<div class="header-buttons">', unsafe_allow_html=True)
-    button_col1, button_col2, button_col3 = st.columns(3)
-    
-    with button_col1:
+    cols = st.columns(2)
+    with cols[0]:
         if st.button("💾 Save", use_container_width=True):
-            success, message = save_current_chat()
-            if success:
-                st.success(message)
-                time.sleep(1)
-                st.rerun()
-            else:
-                st.info(message)
-    
-    with button_col2:
+            success, msg = save_current_chat()
+            st.success(msg) if success else st.info(msg)
+            time.sleep(1)
+            st.rerun()
+    with cols[1]:
         if st.button("🗑 Clear", use_container_width=True):
             st.session_state.messages = []
             st.rerun()
-    
-    with button_col3:
-        if st.button("📁 New", use_container_width=True):
-            st.session_state.messages = []
-            st.session_state.embeddings = None
-            st.session_state.chunks = []
-            st.session_state.meta = []
-            st.session_state.current_chat_name = f"Chat {len(st.session_state.saved_chats) + 1}"
-            st.rerun()
-    
-    st.markdown('</div>', unsafe_allow_html=True)
+
+# GenAI Mode Selector
+show_genai_selector()
 
 # Upload area
 st.markdown("""
 <div class="upload-area">
-    <div style="font-size: 2rem; margin-bottom: 1rem;">📄</div>
-    <div style="font-size: 1.1rem; font-weight: 500; color: #111827; margin-bottom: 0.5rem;">Drop your documents here</div>
-    <div style="color: #6B7280; font-size: 0.9rem;">PDF • DOCX • TXT</div>
+    <div style="font-size: 2rem;">📄</div>
+    <div style="font-size: 1.1rem; font-weight: 500;">Drop your documents here</div>
+    <div style="color: #6B7280;">PDF • DOCX • TXT</div>
 </div>
 """, unsafe_allow_html=True)
 
 uploaded_files = st.file_uploader(
-    "Upload documents",
+    "Upload",
     type=["pdf", "docx", "txt"],
     accept_multiple_files=True,
     label_visibility="collapsed"
 )
 
-# Process uploaded files
+# Show document preview
+show_document_preview()
+
+# Process files
 if uploaded_files:
     new_hash = hashlib.sha256(str([f.name for f in uploaded_files]).encode()).hexdigest()
-    
     if st.session_state.files_hash != new_hash:
-        with st.spinner("🔮 Processing documents..."):
-            embeddings, chunks, meta = process_files(uploaded_files)
-            st.session_state.embeddings = embeddings
+        with st.spinner("Processing..."):
+            emb, chunks, meta = process_files(uploaded_files)
+            st.session_state.embeddings = emb
             st.session_state.chunks = chunks
             st.session_state.meta = meta
             st.session_state.files_hash = new_hash
-        
-        if embeddings is not None:
-            st.success(f"✅ Ready! {len(chunks)} chunks from {len(uploaded_files)} files")
-        else:
-            st.warning("No readable text found")
+        if emb is not None:
+            st.success(f"✅ {len(chunks)} chunks ready")
 
-# Display chat history
+# Chat history
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
 # Chat input
-question = st.chat_input("Ask about your documents...")
+question = st.chat_input(f"Ask in {st.session_state.genai_mode} mode...")
 
-if question:
-    st.session_state.messages.append({"role": "user", "content": question})
+if question and st.session_state.embeddings is not None:
+    st.session_state.messages.append({"role": "user", "content": f"[{st.session_state.genai_mode}] {question}"})
     with st.chat_message("user"):
-        st.markdown(question)
+        st.markdown(f"**{st.session_state.genai_mode}:** {question}")
     
-    if not uploaded_files or st.session_state.embeddings is None:
-        st.warning("Please upload documents first")
-        st.stop()
-    
-    # Search documents
-    with st.spinner("🔍 Searching..."):
+    # Get context for Q&A mode only
+    if st.session_state.genai_mode == "Q&A":
         q_emb = embedder.encode([question])[0]
         retrieved = find_similar(q_emb, st.session_state.embeddings, 
                                 st.session_state.chunks, st.session_state.meta, k=TOP_K)
-    
-    # Calculate confidence
-    if retrieved:
-        avg_conf = sum([s for _,_,s in retrieved]) / len(retrieved)
-        confidence = "High" if avg_conf > 0.5 else "Medium" if avg_conf > 0.3 else "Low"
+        context = "\n\n".join([f"[{fname}]\n{chunk}" for chunk, fname, _ in retrieved]) if retrieved else ""
     else:
-        avg_conf = 0
-        confidence = "None"
+        # For other modes, use full document text
+        context = " ".join(st.session_state.chunks) if st.session_state.chunks else ""
+        retrieved = []
     
-    # Prepare context
-    if not retrieved:
-        context = "No relevant information found in the documents."
-    else:
-        context = "\n\n".join([f"[From {fname}]\n{chunk}" for chunk, fname, _ in retrieved])
-    
-    # Get answer
     with st.chat_message("assistant"):
-        with st.spinner("💭 Thinking..."):
-            answer = get_answer(context, question)
+        with st.spinner(f"Generating {st.session_state.genai_mode}..."):
+            answer = get_answer(context, question, st.session_state.genai_mode)
         
-        placeholder = st.empty()
-        stream_response(answer, placeholder)
+        st.markdown(answer)
         
-        # Show metadata
-        col1, col2 = st.columns([0.3, 0.7])
-        with col1:
-            st.caption(f"🎯 Confidence: {confidence}")
-        
-        # Show sources
-        if show_sources and retrieved:
-            with st.expander(f"📄 View {len(retrieved)} sources"):
-                for i, (chunk, fname, score) in enumerate(retrieved, 1):
-                    st.markdown(f"**{i}. {fname}** (relevance: {score:.2f})")
-                    st.info(chunk[:300] + "..." if len(chunk) > 300 else chunk)
+        if show_sources and retrieved and st.session_state.genai_mode == "Q&A":
+            with st.expander("📄 Sources"):
+                for chunk, fname, score in retrieved:
+                    st.info(f"**{fname}** (score: {score:.2f})\n{chunk[:200]}...")
     
     st.session_state.messages.append({"role": "assistant", "content": answer})
-    
-    # Auto-save chat
-    if len(st.session_state.messages) == 2:  # First Q&A
-        save_current_chat()
-    
+    save_current_chat()
     st.rerun()
-
-# Welcome message
-if len(st.session_state.messages) == 0 and st.session_state.embeddings is not None:
-    st.markdown("""
-    <div style="text-align: center; padding: 3rem; color: #6B7280;">
-        <div style="font-size: 3rem; margin-bottom: 1rem;">🥝</div>
-        <h3 style="color: #111827; margin-bottom: 0.5rem;">Ready to help!</h3>
-        <p>Ask me anything about your documents.</p>
-    </div>
-    """, unsafe_allow_html=True)
